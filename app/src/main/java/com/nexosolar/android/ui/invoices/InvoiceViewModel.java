@@ -302,7 +302,10 @@ public class InvoiceViewModel extends ViewModel {
                 break;
 
             case NETWORK:
-                stateManager.showNetworkError(message); // <-- Esto mostrará el de conexión
+
+                mainThreadHandler.postDelayed(() -> {
+                    stateManager.showNetworkError(message);
+                }, 3000);
                 break;
 
             case UNKNOWN:
