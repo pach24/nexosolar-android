@@ -108,15 +108,15 @@ public class FilterFragment extends Fragment {
         });
 
         binding.checkPagadas.setOnCheckedChangeListener((v, isChecked) ->
-                actualizarEstadoCheckbox(InvoiceState.PAID.getServerValue(), isChecked));
+                actualizarEstadoCheckbox(InvoiceState.PAID.serverValue, isChecked));
         binding.checkPendientesPago.setOnCheckedChangeListener((v, isChecked) ->
-                actualizarEstadoCheckbox(InvoiceState.PENDING.getServerValue(), isChecked));
+                actualizarEstadoCheckbox(InvoiceState.PENDING.serverValue, isChecked));
         binding.checkAnuladas.setOnCheckedChangeListener((v, isChecked) ->
-                actualizarEstadoCheckbox(InvoiceState.CANCELLED.getServerValue(), isChecked));
+                actualizarEstadoCheckbox(InvoiceState.CANCELLED.serverValue, isChecked));
         binding.checkCuotaFija.setOnCheckedChangeListener((v, isChecked) ->
-                actualizarEstadoCheckbox(InvoiceState.FIXED_FEE.getServerValue(), isChecked));
+                actualizarEstadoCheckbox(InvoiceState.FIXED_FEE.serverValue, isChecked));
         binding.checkPlanPago.setOnCheckedChangeListener((v, isChecked) ->
-                actualizarEstadoCheckbox(InvoiceState.PAYMENT_PLAN.getServerValue(), isChecked));
+                actualizarEstadoCheckbox(InvoiceState.PAYMENT_PLAN.serverValue, isChecked));
 
         binding.btnAplicar.setOnClickListener(v -> aplicarFiltros());
         binding.btnBorrar.setOnClickListener(v -> viewModel.resetearFiltros());
@@ -130,14 +130,14 @@ public class FilterFragment extends Fragment {
         if (filtros == null) return;
 
         // Fechas
-        if (filtros.getStartDate() != null) {
-            binding.btnSelectDate.setText(DateUtils.formatDateShort(filtros.getStartDate()));
+        if (filtros.startDate != null) {
+            binding.btnSelectDate.setText(DateUtils.formatDateShort(filtros.startDate));
         } else {
             binding.btnSelectDate.setText(R.string.dia_mes_ano);
         }
 
-        if (filtros.getEndDate() != null) {
-            binding.btnSelectDateUntil.setText(DateUtils.formatDateShort(filtros.getEndDate()));
+        if (filtros.endDate != null) {
+            binding.btnSelectDateUntil.setText(DateUtils.formatDateShort(filtros.endDate));
         } else {
             binding.btnSelectDateUntil.setText(R.string.dia_mes_ano);
         }
@@ -148,8 +148,8 @@ public class FilterFragment extends Fragment {
             binding.rangeSlider.setValueFrom(0f);
             binding.rangeSlider.setValueTo(maxImporte);
 
-            float minVal = Math.max(0f, filtros.getMinAmount().floatValue());
-            float maxVal = Math.min(maxImporte, filtros.getMaxAmount().floatValue());
+            float minVal = Math.max(0f, filtros.minAmount.floatValue());
+            float maxVal = Math.min(maxImporte, filtros.maxAmount.floatValue());
             if (minVal > maxVal) minVal = maxVal;
 
             binding.rangeSlider.setValues(minVal, maxVal);
@@ -159,13 +159,13 @@ public class FilterFragment extends Fragment {
         }
 
         // Checkboxes
-        List<String> estados = filtros.getFilteredStates();
+        List<String> estados = filtros.filteredStates;
         if (estados == null) estados = new ArrayList<>();
-        binding.checkPagadas.setChecked(estados.contains(InvoiceState.PAID.getServerValue()));
-        binding.checkPendientesPago.setChecked(estados.contains(InvoiceState.PENDING.getServerValue()));
-        binding.checkAnuladas.setChecked(estados.contains(InvoiceState.CANCELLED.getServerValue()));
-        binding.checkCuotaFija.setChecked(estados.contains(InvoiceState.FIXED_FEE.getServerValue()));
-        binding.checkPlanPago.setChecked(estados.contains(InvoiceState.PAYMENT_PLAN.getServerValue()));
+        binding.checkPagadas.setChecked(estados.contains(InvoiceState.PAID.serverValue));
+        binding.checkPendientesPago.setChecked(estados.contains(InvoiceState.PENDING.serverValue));
+        binding.checkAnuladas.setChecked(estados.contains(InvoiceState.CANCELLED.serverValue));
+        binding.checkCuotaFija.setChecked(estados.contains(InvoiceState.FIXED_FEE.serverValue));
+        binding.checkPlanPago.setChecked(estados.contains(InvoiceState.PAYMENT_PLAN.serverValue));
     }
 
     // ===== Gestión de filtros =====
@@ -175,24 +175,24 @@ public class FilterFragment extends Fragment {
 
         // 1. Estados
         List<String> estados = new ArrayList<>();
-        if (binding.checkPagadas.isChecked()) estados.add(InvoiceState.PAID.getServerValue());
-        if (binding.checkPendientesPago.isChecked()) estados.add(InvoiceState.PENDING.getServerValue());
-        if (binding.checkAnuladas.isChecked()) estados.add(InvoiceState.CANCELLED.getServerValue());
-        if (binding.checkCuotaFija.isChecked()) estados.add(InvoiceState.FIXED_FEE.getServerValue());
-        if (binding.checkPlanPago.isChecked()) estados.add(InvoiceState.PAYMENT_PLAN.getServerValue());
+        if (binding.checkPagadas.isChecked()) estados.add(InvoiceState.PAID.serverValue);
+        if (binding.checkPendientesPago.isChecked()) estados.add(InvoiceState.PENDING.serverValue);
+        if (binding.checkAnuladas.isChecked()) estados.add(InvoiceState.CANCELLED.serverValue);
+        if (binding.checkCuotaFija.isChecked()) estados.add(InvoiceState.FIXED_FEE.serverValue);
+        if (binding.checkPlanPago.isChecked()) estados.add(InvoiceState.PAYMENT_PLAN.serverValue);
         nuevosFiltros.setFilteredStates(estados);
 
         // 2. Importes
         List<Float> valores = binding.rangeSlider.getValues();
-        nuevosFiltros.setMinAmount((double) valores.get(0));
-        nuevosFiltros.setMaxAmount((double) valores.get(1));
+        nuevosFiltros.minAmount = (double) valores.get(0);
+        nuevosFiltros.maxAmount = (double) valores.get(1);
 
         // 3. Fechas
         // IMPORTANTE: Aquí recuperamos las fechas que el usuario HA ELEGIDO explícitamente.
         // Si no ha tocado el calendario, seguirán siendo null (lo cual es correcto).
         InvoiceFilters current = viewModel.getFiltrosActuales().getValue();
-        LocalDate start = (current != null) ? current.getStartDate() : null;
-        LocalDate end = (current != null) ? current.getEndDate() : null;
+        LocalDate start = (current != null) ? current.startDate : null;
+        LocalDate end = (current != null) ? current.endDate : null;
 
         // Solo corregimos si AMBAS existen y están cruzadas
         if (start != null && end != null && start.isAfter(end)) {
@@ -201,8 +201,8 @@ public class FilterFragment extends Fragment {
             end = temp;
         }
 
-        nuevosFiltros.setStartDate(start);
-        nuevosFiltros.setEndDate(end);
+        nuevosFiltros.startDate = start;
+        nuevosFiltros.endDate = end;
 
         viewModel.actualizarFiltros(nuevosFiltros);
         cerrarFragmento();
@@ -213,7 +213,7 @@ public class FilterFragment extends Fragment {
         InvoiceFilters filtros = viewModel.getFiltrosActuales().getValue();
         if (filtros == null) return;
 
-        List<String> estadosActuales = filtros.getFilteredStates();
+        List<String> estadosActuales = filtros.filteredStates;
         if (estadosActuales == null) estadosActuales = new ArrayList<>();
         else estadosActuales = new ArrayList<>(estadosActuales);
 
@@ -227,8 +227,8 @@ public class FilterFragment extends Fragment {
         // Preservar valores del slider
         List<Float> currentSliderValues = binding.rangeSlider.getValues();
         if (currentSliderValues.size() >= 2) {
-            filtros.setMinAmount((double) currentSliderValues.get(0));
-            filtros.setMaxAmount((double) currentSliderValues.get(1));
+            filtros.minAmount = (double) currentSliderValues.get(0);
+            filtros.maxAmount = (double) currentSliderValues.get(1);
         }
         viewModel.actualizarEstadoFiltros(filtros);
     }
@@ -254,15 +254,15 @@ public class FilterFragment extends Fragment {
         if (esInicio) {
             // Si elijo inicio, no puedo ir más allá del final seleccionado (si lo hay)
             constraintMin = globalMinMillis;
-            if (filtrosActuales.getEndDate() != null) {
-                constraintMax = filtrosActuales.getEndDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+            if (filtrosActuales.endDate != null) {
+                constraintMax = filtrosActuales.endDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
             } else {
                 constraintMax = globalMaxMillis;
             }
         } else {
             // Si elijo fin, no puedo ir antes del inicio seleccionado (si lo hay)
-            if (filtrosActuales.getStartDate() != null) {
-                constraintMin = filtrosActuales.getStartDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+            if (filtrosActuales.startDate != null) {
+                constraintMin = filtrosActuales.startDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
             } else {
                 constraintMin = globalMinMillis;
             }
@@ -283,7 +283,7 @@ public class FilterFragment extends Fragment {
                 .setValidator(new RangeValidator(constraintMin, constraintMax)); // <--- VALIDACIÓN REAL
 
         // 4. Selección inicial del calendario
-        LocalDate fechaActual = esInicio ? filtrosActuales.getStartDate() : filtrosActuales.getEndDate();
+        LocalDate fechaActual = esInicio ? filtrosActuales.startDate : filtrosActuales.endDate;
         long selection;
         if (fechaActual != null) {
             selection = fechaActual.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
@@ -313,16 +313,16 @@ public class FilterFragment extends Fragment {
 
             if (filtros != null) {
                 if (esInicio) {
-                    filtros.setStartDate(nuevaFecha);
+                    filtros.startDate = nuevaFecha;
                     // Si la nueva fecha de inicio supera al fin actual, empujamos el fin
-                    if (filtros.getEndDate() != null && nuevaFecha.isAfter(filtros.getEndDate())) {
-                        filtros.setEndDate(nuevaFecha);
+                    if (filtros.endDate != null && nuevaFecha.isAfter(filtros.endDate)) {
+                        filtros.endDate = nuevaFecha;
                     }
                 } else {
-                    filtros.setEndDate(nuevaFecha);
+                    filtros.endDate = nuevaFecha;
                     // Si la nueva fecha de fin es anterior al inicio actual, empujamos el inicio
-                    if (filtros.getStartDate() != null && filtros.getStartDate().isAfter(nuevaFecha)) {
-                        filtros.setStartDate(nuevaFecha);
+                    if (filtros.startDate != null && filtros.startDate.isAfter(nuevaFecha)) {
+                        filtros.startDate = nuevaFecha;
                     }
                 }
                 viewModel.actualizarEstadoFiltros(filtros);

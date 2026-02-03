@@ -35,9 +35,9 @@ public class InvoiceMapper {
         if (entity == null) return null;
 
         Invoice invoice = new Invoice();
-        invoice.setInvoiceStatus(entity.estado);
-        invoice.setInvoiceAmount(entity.importe);
-        invoice.setInvoiceDate(entity.fecha);
+        invoice.invoiceStatus = entity.estado;
+        invoice.invoiceAmount = entity.importe;
+        invoice.invoiceDate = entity.fecha;
         // invoice.setId(entity.id); // Descomentar si el dominio requiere ID
 
         return invoice;
@@ -64,11 +64,11 @@ public class InvoiceMapper {
     // InvoiceMapper.java
     public InvoiceEntity toEntity(Invoice dto) {
         InvoiceEntity entity = new InvoiceEntity();
-        entity.estado = dto.getInvoiceStatus();
-        entity.importe = dto.getInvoiceAmount();
+        entity.estado = dto.invoiceStatus;
+        entity.importe = dto.invoiceAmount;
         // Aquí conviertes String date (DTO) -> LocalDate (Entity)
 
-        entity.fecha = dto.getInvoiceDate();
+        entity.fecha = dto.invoiceDate;
 
         return entity;
     }

@@ -64,7 +64,7 @@ public class GetInvoicesUseCaseTest {
                     assertNotNull("Las facturas no deberían ser null", invoices);
                     assertEquals("Debería retornar 2 facturas", 2, invoices.size());
                     assertEquals("Primera factura debería tener importe 100",
-                            100f, invoices.get(0).getInvoiceAmount(), 0.01);
+                            100f, invoices.get(0).invoiceAmount, 0.01);
                 },
                 error -> {
                     throw new AssertionError("No debería llamarse onError en caso de éxito");
@@ -137,14 +137,14 @@ public class GetInvoicesUseCaseTest {
         List<Invoice> invoices = new ArrayList<>();
 
         Invoice invoice1 = new Invoice();
-        invoice1.setInvoiceAmount(100f);
-        invoice1.setInvoiceStatus("Pagada");
-        invoice1.setInvoiceDate(LocalDate.of(2025, 1, 1));
+        invoice1.invoiceAmount = 100f;
+        invoice1.invoiceStatus = "Pagada";
+        invoice1.invoiceDate = LocalDate.of(2025, 1, 1);
 
         Invoice invoice2 = new Invoice();
-        invoice2.setInvoiceAmount(200f);
-        invoice2.setInvoiceStatus("Pendiente de pago");
-        invoice2.setInvoiceDate(LocalDate.of(2025, 2, 1));
+        invoice2.invoiceAmount = 200f;
+        invoice2.invoiceStatus = "Pendiente de pago";
+        invoice2.invoiceDate = LocalDate.of(2025, 2, 1);
 
         invoices.add(invoice1);
         invoices.add(invoice2);

@@ -55,7 +55,7 @@ public class InstallationViewModel extends ViewModel {
     public void loadInstallationDetails() {
         _isLoading.setValue(true);
 
-        getInstallationDetailsUseCase.execute(new InstallationRepository.InstallationCallback() {
+        getInstallationDetailsUseCase.invoke(new InstallationRepository.InstallationCallback() {
             @Override
             public void onSuccess(Installation installation) {
                 _isLoading.postValue(false);

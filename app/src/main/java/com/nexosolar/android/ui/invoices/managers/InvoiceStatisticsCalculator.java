@@ -20,8 +20,8 @@ public class InvoiceStatisticsCalculator {
 
         float max = 0f;
         for (Invoice invoice : invoices) {
-            if (invoice.getInvoiceAmount() > max) {
-                max = invoice.getInvoiceAmount();
+            if (invoice.invoiceAmount > max) {
+                max = invoice.invoiceAmount;
             }
         }
         return max;
@@ -34,7 +34,7 @@ public class InvoiceStatisticsCalculator {
 
         LocalDate oldest = null;
         for (Invoice invoice : invoices) {
-            LocalDate current = invoice.getInvoiceDate();
+            LocalDate current = invoice.invoiceDate;
             if (current != null) {
                 if (oldest == null || current.isBefore(oldest)) {
                     oldest = current;
@@ -51,7 +51,7 @@ public class InvoiceStatisticsCalculator {
 
         LocalDate newest = null;
         for (Invoice invoice : invoices) {
-            LocalDate current = invoice.getInvoiceDate();
+            LocalDate current = invoice.invoiceDate;
             if (current != null) {
                 if (newest == null || current.isAfter(newest)) {
                     newest = current;

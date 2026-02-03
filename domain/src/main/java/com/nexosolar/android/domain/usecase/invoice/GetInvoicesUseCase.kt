@@ -1,29 +1,19 @@
-package com.nexosolar.android.domain.usecase.invoice;
+package com.nexosolar.android.domain.usecase.invoice
 
-import com.nexosolar.android.domain.repository.RepositoryCallback;
-import com.nexosolar.android.domain.models.Invoice;
-import com.nexosolar.android.domain.repository.InvoiceRepository;
-
-import java.util.List;
+import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.repository.InvoiceRepository
+import com.nexosolar.android.domain.repository.RepositoryCallback
 
 /**
  * Caso de uso encargado de obtener el listado de facturas.
  * Proporciona al ViewModel la lista de facturas
  */
-
-public class GetInvoicesUseCase {
-    private final InvoiceRepository repository;
-
-    public GetInvoicesUseCase(InvoiceRepository repository) {
-        this.repository = repository;
+class GetInvoicesUseCase(private val repository: InvoiceRepository) {
+    operator fun invoke(callback: RepositoryCallback<List<Invoice?>?>?) {
+        repository.getInvoices(callback)
     }
 
-
-    public void invoke(RepositoryCallback<List<Invoice>> callback) {
-        repository.getInvoices(callback);
-    }
-
-    public void refresh(RepositoryCallback<Boolean> callback) {
-        repository.refreshInvoices(callback);
+    fun refresh(callback: RepositoryCallback<Boolean?>?) {
+        repository.refreshInvoices(callback)
     }
 }

@@ -1,18 +1,14 @@
-package com.nexosolar.android.domain.usecase.invoice;
+package com.nexosolar.android.domain.usecase.invoice
 
-import com.nexosolar.android.domain.models.Invoice;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-
+import com.nexosolar.android.domain.models.Invoice
+import java.time.LocalDate
 
 /**
  * Caso de uso que aplica filtros múltiples al listado de facturas.
  * Implementa la lógica de negocio de filtrado por estado, fecha e importe de forma combinada.
  * Permite al ViewModel delegar la complejidad del filtrado y mantener la UI libre de lógica de negocio.
  */
-public class FilterInvoicesUseCase {
-
+class FilterInvoicesUseCase {
 
     // ===== Métodos públicos =====
 
@@ -28,65 +24,68 @@ public class FilterInvoicesUseCase {
      * @param importeMax Importe máximo (inclusive)
      * @return Lista filtrada según los criterios aplicados
      */
-    public List<Invoice> execute(List<Invoice> facturasOriginales,
-                                 List<String> estadosSeleccionados,
-                                 LocalDate fechaInicio,
-                                 LocalDate fechaFin,
-                                 Double importeMin,
-                                 Double importeMax) {
+    fun invoke(
+        facturasOriginales: List<Invoice>?,
+        estadosSeleccionados: List<String>?,
+        fechaInicio: LocalDate?,
+        fechaFin: LocalDate?,
+        importeMin: Double?,
+        importeMax: Double?
+    ): List<Invoice> {
 
-
-        if (facturasOriginales == null || facturasOriginales.isEmpty()) {
-            return new ArrayList<>();
+        if (facturasOriginales.isNullOrEmpty()) {
+            return ArrayList()
         }
 
-        List<Invoice> facturasFiltradas = new ArrayList<>();
+        val facturasFiltradas = ArrayList<Invoice>()
 
-        for (Invoice factura : facturasOriginales) {
+        for (factura in facturasOriginales) {
+
             // 1. Filtro por Estado
-            boolean cumpleEstado;
+            var cumpleEstado: Boolean
             if (estadosSeleccionados == null) {
-                cumpleEstado = true;
+                cumpleEstado = true
             } else {
                 // Si la lista de estados seleccionados contiene el estado de la factura
-                cumpleEstado = estadosSeleccionados.contains(factura.getInvoiceStatus());
+                cumpleEstado = estadosSeleccionados.contains(factura.invoiceStatus)
             }
 
             // 2. Filtro por Fecha
-            boolean cumpleFecha = true;
-            LocalDate fechaFactura = factura.getInvoiceDate();
+            var cumpleFecha = true
+            val fechaFactura = factura.invoiceDate
 
             if (fechaFactura != null) {
                 if (fechaInicio != null) {
-                    cumpleFecha = !fechaFactura.isBefore(fechaInicio);
+                    cumpleFecha = !fechaFactura.isBefore(fechaInicio)
                 }
+
                 if (cumpleFecha && fechaFin != null) {
-                    cumpleFecha = !fechaFactura.isAfter(fechaFin);
+                    cumpleFecha = !fechaFactura.isAfter(fechaFin)
                 }
             } else {
                 // Si hay rango pero la factura no tiene fecha, ¿se descarta?
                 if (fechaInicio != null || fechaFin != null) {
-                    cumpleFecha = false;
+                    cumpleFecha = false
                 }
             }
 
             // 3. Filtro por Importe
-            double importe = factura.getInvoiceAmount();
-            boolean cumpleImporte = true;
+            val importe = factura.invoiceAmount.toDouble()
+            var cumpleImporte = true
 
             if (importeMin != null && importe < importeMin) {
-                cumpleImporte = false;
+                cumpleImporte = false
             }
+
             if (cumpleImporte && importeMax != null && importe > importeMax) {
-                cumpleImporte = false;
+                cumpleImporte = false
             }
+
             if (cumpleEstado && cumpleFecha && cumpleImporte) {
-                facturasFiltradas.add(factura);
+                facturasFiltradas.add(factura)
             }
         }
 
-        return facturasFiltradas;
+        return facturasFiltradas
     }
-
-
 }

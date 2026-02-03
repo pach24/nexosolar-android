@@ -34,11 +34,11 @@ public class GetInstallationDetailsUseCaseTest {
     }
 
     @Test
-    public void execute_whenCalled_delegatesToRepository() {
+    public void invoke_whenCalled_delegatesToRepository() {
         // GIVEN: Un callback null (simplificado para test)
 
         // WHEN: Ejecutamos el use case
-        useCase.execute(null);
+        useCase.invoke(null);
 
         // THEN: Verifica que el repositorio fue llamado exactamente una vez
         verify(mockRepository, times(1)).getInstallationDetails(any());
