@@ -6,8 +6,10 @@ import androidx.lifecycle.MutableLiveData;
 import com.nexosolar.android.core.DateValidator;
 import com.nexosolar.android.domain.models.Invoice;
 import com.nexosolar.android.domain.models.InvoiceFilters;
+import com.nexosolar.android.domain.models.InvoiceState;
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,11 +51,20 @@ public class InvoiceFilterManager {
             return;
         }
 
+        // Auto-corrección defensiva (evita toasts por fechas cruzadas).
+        LocalDate start = filters.getStartDate();
+        LocalDate end = filters.getEndDate();
+        if (start != null && end != null && start.isAfter(end)) {
+            filters.setStartDate(end);
+            filters.setEndDate(start);
+        }
+
         // USO DE DATE VALIDATOR: Validación delegada
         if (DateValidator.isValidRange(filters.getStartDate(), filters.getEndDate())) {
             _currentFilters.setValue(filters);
             _validationError.setValue(null);
         } else {
+            // Si aún así fuese inválido, no reventamos la UX: dejamos el error disponible.
             _validationError.setValue("La fecha de inicio no puede ser posterior a la fecha final");
         }
     }
@@ -69,6 +80,7 @@ public class InvoiceFilterManager {
         float maxAmount = calculator.calculateMaxAmount(invoices);
         defaultFilters.setMaxAmount((double) maxAmount);
 
+        // Lista vacía = “sin filtrar por estado” (y en applyCurrentFilters se interpreta como TODOS)
         defaultFilters.setFilteredStates(new ArrayList<>());
 
         _currentFilters.setValue(defaultFilters);
@@ -83,21 +95,45 @@ public class InvoiceFilterManager {
             return new ArrayList<>();
         }
 
+        List<String> statesToFilter = filters.getFilteredStates();
+        // REGLA: Lista vacía = Todos los estados
+        if (statesToFilter == null || statesToFilter.isEmpty()) {
+            statesToFilter = new ArrayList<>();
+            for (InvoiceState state : InvoiceState.values()) {
+                statesToFilter.add(state.getServerValue());
+            }
+        }
+
+        // REGLA: Fechas nulas = Extremos del dataset
+        // Calculamos fechas efectivas TEMPORALES solo para esta ejecución
+        LocalDate effectiveStart = filters.getStartDate();
+        LocalDate effectiveEnd = filters.getEndDate();
+
+        if (effectiveStart == null) {
+            effectiveStart = calculator.calculateOldestDate(invoices);
+        }
+        if (effectiveEnd == null) {
+            effectiveEnd = calculator.calculateNewestDate(invoices);
+            if (effectiveEnd == null) effectiveEnd = LocalDate.now();
+        }
+
         return filterUseCase.execute(
                 invoices,
-                filters.getFilteredStates(),
-                filters.getStartDate(),
-                filters.getEndDate(),
+                statesToFilter,
+                effectiveStart, // Usamos las fechas efectivas
+                effectiveEnd,   // Usamos las fechas efectivas
                 filters.getMinAmount(),
                 filters.getMaxAmount()
         );
     }
+
 
     // ===== Métodos de Consulta de Estado =====
 
     public boolean hasActiveFilters() {
         InvoiceFilters filters = _currentFilters.getValue();
         if (filters == null) return false;
+
 
         if (filters.getFilteredStates() != null && !filters.getFilteredStates().isEmpty()) return true;
         if (filters.getStartDate() != null || filters.getEndDate() != null) return true;
