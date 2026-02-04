@@ -70,4 +70,10 @@ dependencies {
 
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // --- KOTLIN & COROUTINES ---
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Asegúrate de tener viewmodel-ktx para 'viewModelScope'
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.fragment:fragment-ktx:1.8.1") // Para 'activityViewModels' delegado
 }

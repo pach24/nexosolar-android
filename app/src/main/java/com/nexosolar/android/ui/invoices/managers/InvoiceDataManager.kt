@@ -1,190 +1,118 @@
-package com.nexosolar.android.ui.invoices.managers;
+package com.nexosolar.android.ui.invoices.managers
 
-import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.LiveData;
-
-import com.nexosolar.android.domain.models.Invoice;
-import com.nexosolar.android.domain.repository.RepositoryCallback;
-import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase;
-
-import java.util.ArrayList;
-import java.util.List;
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.repository.RepositoryCallback
+import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
- * Gestor especializado en datos de facturas.
- *
- * Responsabilidades:
- * - Gestionar el ciclo de vida de los datos (carga, caché, actualización)
- * - Mantener copia original de datos para operaciones de filtrado
- * - Coordinar entre fuente remota y caché local
- * - Notificar cambios a través de LiveData reactivo
- *
- * Sigue el patrón Repository para abstraer el origen de datos.
+ * Gestor especializado en el ciclo de vida de los datos de facturas.
  */
-public class InvoiceDataManager {
 
-    // ===== Interfaces internas =====
-
-    /**
-     * Callback para operaciones asíncronas de carga de datos.
-     */
-    public interface LoadCallback {
-        void onSuccess(List<Invoice> invoices);
-        void onError(Throwable error);
-    }
+class InvoiceDataManager(private val getInvoicesUseCase: GetInvoicesUseCase) {
 
     // ===== Variables de instancia =====
 
-    private final GetInvoicesUseCase getInvoicesUseCase;
-    private List<Invoice> originalInvoices = new ArrayList<>();
-    private final MutableLiveData<List<Invoice>> _invoices = new MutableLiveData<>();
-
-    // ===== Constructores =====
-
-    public InvoiceDataManager(GetInvoicesUseCase getInvoicesUseCase) {
-        this.getInvoicesUseCase = getInvoicesUseCase;
-    }
-
-    // ===== Getters de LiveData =====
+    private var _originalInvoices = mutableListOf<Invoice>()
 
     /**
-     * Obtiene la lista observable de facturas.
-     * Esta lista puede estar filtrada según criterios aplicados.
-     *
-     * @return LiveData con la lista actual de facturas
+     * Lista original completa (copia inmutable para seguridad).
      */
-    public LiveData<List<Invoice>> getInvoices() {
-        return _invoices;
-    }
+    val originalInvoices: List<Invoice> get() = _originalInvoices.toList()
+
+    private val _invoices = MutableLiveData<List<Invoice>>()
 
     /**
-     * Obtiene la lista original completa de facturas (sin filtros).
-     * Útil para operaciones de filtrado y cálculos estadísticos.
-     *
-     * @return Lista inmutable de facturas originales
+     * LiveData observable para la UI.
      */
-    public List<Invoice> getOriginalInvoices() {
-        return new ArrayList<>(originalInvoices);
-    }
+    val invoices: LiveData<List<Invoice>> get() = _invoices
 
-    // ===== Métodos públicos de operación =====
+    // ===== Métodos de operación con Corrutinas =====
 
     /**
-     * Carga facturas desde la fuente de datos.
-     * Implementa estrategia de caché: primero caché local, luego red si es necesario.
-     *
-     * @param callback Callback para notificar resultado de la operación
+     * Carga facturas de forma asíncrona.
+     * @return La lista de facturas cargadas.
+     * @throws Exception si ocurre un error en el caso de uso.
      */
-    public void loadInvoices(LoadCallback callback) {
-        // Primero verificar si ya tenemos datos en memoria
-        boolean hasCachedData = !originalInvoices.isEmpty();
-
-        if (hasCachedData) {
-            // Notificar inmediatamente con datos cacheados
-            callback.onSuccess(new ArrayList<>(originalInvoices));
-            return;
+    suspend fun loadInvoices(): List<Invoice> {
+        // 1. Estrategia de caché: si ya tenemos datos, no vamos a red
+        if (hasCachedData()) {
+            return originalInvoices
         }
 
-        // Si no hay caché, cargar desde use case
-        getInvoicesUseCase.invoke(new RepositoryCallback<List<Invoice>>() {
-            @Override
-            public void onSuccess(List<Invoice> result) {
-                // Guardar copia original para operaciones posteriores
-                originalInvoices = new ArrayList<>(result);
-
-                // Notificar a observadores internos
-                _invoices.postValue(result);
-
-                // Notificar al callback externo
-                if (callback != null) {
-                    callback.onSuccess(result);
+        // 2. Si no hay caché, suspendemos hasta obtener respuesta
+        return suspendCancellableCoroutine { continuation ->
+            getInvoicesUseCase.invoke(object : RepositoryCallback<List<Invoice>> {
+                override fun onSuccess(result: List<Invoice>) {
+                    updateOriginalInvoices(result)
+                    _invoices.postValue(result)
+                    continuation.resume(result)
                 }
-            }
 
-            @Override
-            public void onError(Throwable error) {
-                // Notificar error al callback
-                if (callback != null) {
-                    callback.onError(error);
+                override fun onError(error: Throwable) {
+                    continuation.resumeWithException(error)
                 }
-            }
-        });
+            })
+        }
     }
 
     /**
-     * Establece una nueva lista de facturas (generalmente después de filtrado).
-     *
-     * @param invoices Nueva lista de facturas a mostrar
+     * Fuerza la actualización de datos desde el servidor.
      */
-    public void setInvoices(List<Invoice> invoices) {
-        _invoices.postValue(invoices != null ? new ArrayList<>(invoices) : new ArrayList<>());
-    }
-
-    /**
-     * Actualiza las facturas originales (después de recarga forzada).
-     * Útil cuando se sabe que los datos han cambiado en servidor.
-     *
-     * @param invoices Nueva lista de facturas originales
-     */
-    public void updateOriginalInvoices(List<Invoice> invoices) {
-        this.originalInvoices = new ArrayList<>(invoices);
-    }
-
-    /**
-     * Fuerza una recarga desde la fuente remota.
-     * Ignora caché local y solicita datos frescos.
-     *
-     * @param callback Callback para notificar resultado
-     */
-    public void refreshInvoices(LoadCallback callback) {
-        getInvoicesUseCase.refresh(new RepositoryCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean success) {
-                // Después de refrescar, cargar datos actualizados
-                loadInvoices(callback);
-            }
-
-            @Override
-            public void onError(Throwable error) {
-                if (callback != null) {
-                    callback.onError(error);
+    suspend fun refreshInvoices(): Boolean {
+        return suspendCancellableCoroutine { continuation ->
+            getInvoicesUseCase.refresh(object : RepositoryCallback<Boolean> {
+                override fun onSuccess(success: Boolean) {
+                    // Al refrescar con éxito, limpiamos caché para forzar recarga real
+                    _originalInvoices.clear()
+                    continuation.resume(success)
                 }
-            }
-        });
+
+                override fun onError(error: Throwable) {
+                    continuation.resumeWithException(error)
+                }
+            })
+        }
     }
 
-    // ===== Métodos de consulta =====
+    // ===== Métodos de gestión de estado =====
+
+    fun setInvoices(invoices: List<Invoice>?) {
+        _invoices.postValue(invoices?.toList() ?: emptyList())
+    }
+
+    fun updateOriginalInvoices(invoices: List<Invoice>) {
+        _originalInvoices = invoices.toMutableList()
+    }
+
+    // ===== Métodos de consulta (Los que te faltaban) =====
 
     /**
-     * Verifica si hay datos cacheados disponibles.
-     *
-     * @return true si hay al menos una factura en caché, false en caso contrario
+     * Verifica si hay datos en memoria.
      */
-    public boolean hasCachedData() {
-        return !originalInvoices.isEmpty();
+    fun hasCachedData(): Boolean = _originalInvoices.isNotEmpty()
+
+    /**
+     * Retorna la cantidad total de facturas originales.
+     */
+    fun getOriginalCount(): Int = _originalInvoices.size
+
+    /**
+     * Limpia el LiveData notificando una lista vacía.
+     */
+    fun invalidateCache() {
+        _invoices.postValue(emptyList())
     }
 
     /**
-     * Obtiene el número total de facturas originales.
-     *
-     * @return Cantidad de facturas en la lista original
+     * Limpia completamente el estado del manager.
      */
-    public int getOriginalCount() {
-        return originalInvoices.size();
-    }
-
-
-    public void invalidateCache() {
-        // Usamos postValue para asegurar que la limpieza se notifique al hilo principal
-        _invoices.postValue(new ArrayList<>());
-    }
-
-    /**
-     * Limpia todos los datos almacenados.
-     * Útil al cambiar de modo (mock/real) o al cerrar sesión.
-     */
-    public void clearAllData() {
-        originalInvoices.clear();
-        _invoices.postValue(new ArrayList<>());
+    fun clearAllData() {
+        _originalInvoices.clear()
+        _invoices.postValue(emptyList())
     }
 }
