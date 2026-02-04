@@ -1,6 +1,5 @@
 package com.nexosolar.android.core;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -71,5 +70,18 @@ public class DateUtils {
 
         // Elimina puntos que puedan aparecer después de las abreviaciones de meses
         return fechaStr.replace(".", "");
+    }
+
+
+    /**
+     * Convierte un LocalDate a milisegundos en UTC.
+     * Necesario para configurar MaterialDatePicker.
+     *
+     * @param date Fecha a convertir
+     * @return milisegundos o 0 si la fecha es nula
+     */
+    public static long toEpochMilli(LocalDate date) {
+        if (date == null) return 0;
+        return date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
+import java.time.LocalDate
 
 /**
  * Gestor especializado en la lógica de filtrado de facturas.
@@ -17,8 +18,20 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
     private val _validationError = MutableLiveData<String?>()
     val validationError: LiveData<String?> get() = _validationError
 
-    fun updateFilters(filters: InvoiceFilters) {
-        _currentFilters.postValue(filters)
+
+
+    fun updateFilters(newFilters: InvoiceFilters) {
+        // 1. Lógica de Negocio: Corregir el orden de las fechas si el usuario se equivocó
+        val start = newFilters.startDate
+        val end = newFilters.endDate
+
+        if (start != null && end != null && start.isAfter(end)) {
+            newFilters.startDate = end
+            newFilters.endDate = start
+        }
+
+        // 2. Guardar el estado limpio
+        _currentFilters.postValue(newFilters)
     }
 
     fun resetFilters(invoices: List<Invoice>) {
@@ -80,6 +93,7 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
 
         return true
     }
+
 
 
 }

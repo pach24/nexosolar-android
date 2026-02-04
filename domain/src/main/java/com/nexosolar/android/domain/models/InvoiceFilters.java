@@ -27,6 +27,20 @@ public class InvoiceFilters {
         this.maxAmount = 0.0;
     }
 
+    /**
+     * Crea una copia profunda del objeto actual.
+     * Útil para mantener la inmutabilidad al actualizar estados.
+     */
+    public InvoiceFilters copy() {
+        InvoiceFilters clone = new InvoiceFilters();
+        clone.setFilteredStates(new ArrayList<>(this.filteredStates));
+        clone.setStartDate(this.startDate);
+        clone.setEndDate(this.endDate);
+        clone.setMinAmount(this.minAmount);
+        clone.setMaxAmount(this.maxAmount);
+        return clone;
+    }
+
     // Getters y Setters
     public List<String> getFilteredStates() {
         return filteredStates;
