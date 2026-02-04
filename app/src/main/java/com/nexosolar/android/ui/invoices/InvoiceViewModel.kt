@@ -160,4 +160,6 @@ class InvoiceViewModel(
         val date = this.getNewestDate()
         return DateUtils.toEpochMilli(date)
     }
+
+    fun esEstadoError() = stateManager.isError()
 }

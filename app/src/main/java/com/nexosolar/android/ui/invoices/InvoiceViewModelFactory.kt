@@ -1,28 +1,26 @@
-package com.nexosolar.android.ui.invoices;
+package com.nexosolar.android.ui.invoices
 
-import androidx.annotation.NonNull;
-import androidx.lifecycle.ViewModel;
-import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
+import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
 
-import com.nexosolar.android.domain.repository.InvoiceRepository;
-import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase;
-import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase;
+/**
+ * Factory para instanciar InvoiceViewModel con sus dependencias.
+ * El uso de modelClass.isAssignableFrom garantiza que solo se cree el ViewModel correcto.
+ */
+class InvoiceViewModelFactory(
+    private val getInvoicesUseCase: GetInvoicesUseCase,
+    private val filterInvoicesUseCase: FilterInvoicesUseCase
+) : ViewModelProvider.Factory {
 
-// Estructura correcta de tu Factory (file:24)
-public class InvoiceViewModelFactory implements ViewModelProvider.Factory {
-    private final GetInvoicesUseCase getInvoicesUseCase;
-    private final FilterInvoicesUseCase filterInvoicesUseCase;
 
-    public InvoiceViewModelFactory(GetInvoicesUseCase getInvoices, FilterInvoicesUseCase filterInvoices) {
-        this.getInvoicesUseCase = getInvoices;
-        this.filterInvoicesUseCase = filterInvoices;
-    }
-
-    @NonNull
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
-        return (T) new InvoiceViewModel(getInvoicesUseCase, filterInvoicesUseCase);
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        return when {
+            modelClass.isAssignableFrom(InvoiceViewModel::class.java) -> {
+                InvoiceViewModel(getInvoicesUseCase, filterInvoicesUseCase) as T
+            }
+            else -> throw IllegalArgumentException("Clase ViewModel desconocida: ${modelClass.name}")
+        }
     }
 }
-

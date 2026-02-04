@@ -1,168 +1,120 @@
-package com.nexosolar.android.ui.invoices;
+package com.nexosolar.android.ui.invoices
 
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.RecyclerView;
-
-import com.nexosolar.android.R;
-import com.nexosolar.android.core.DateUtils;
-import com.nexosolar.android.databinding.ItemInvoiceBinding;
-import com.nexosolar.android.domain.models.Invoice;
-import com.nexosolar.android.domain.models.InvoiceState;
-
-import java.util.List;
-import java.util.Locale;
+import android.content.Context
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.nexosolar.android.R
+import com.nexosolar.android.core.DateUtils
+import com.nexosolar.android.databinding.ItemInvoiceBinding
+import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.models.InvoiceState
+import java.util.Locale
 
 /**
  * InvoiceAdapter
  *
- * Adaptador de RecyclerView para mostrar la lista de facturas.
- * Cada item muestra la fecha, importe y estado visual de una factura.
- * Maneja estados diferenciados con colores y visibilidad condicional.
+ * Adaptador de RecyclerView que utiliza ListAdapter para una gestión eficiente de cambios.
+ * Maneja la lógica visual de las facturas siguiendo el patrón de diseño Clean Code.
  */
-public class InvoiceAdapter extends RecyclerView.Adapter<InvoiceAdapter.InvoiceViewHolder> {
+class InvoiceAdapter : ListAdapter<Invoice, InvoiceAdapter.InvoiceViewHolder>(InvoiceDiffCallback()) {
 
-    // ===== Variables de instancia =====
-
-    private List<Invoice> listaFacturas;
-
-    // ===== Métodos públicos =====
-
-    @SuppressLint("NotifyDataSetChanged")
-    public void setFacturas(List<Invoice> facturas) {
-        this.listaFacturas = facturas;
-        notifyDataSetChanged();
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InvoiceViewHolder {
+        val binding = ItemInvoiceBinding.inflate(
+            LayoutInflater.from(parent.context), parent, false
+        )
+        return InvoiceViewHolder(binding)
     }
 
-    @NonNull
-    @Override
-    public InvoiceViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        ItemInvoiceBinding binding = ItemInvoiceBinding.inflate(
-                LayoutInflater.from(parent.getContext()), parent, false
-        );
-        return new InvoiceViewHolder(binding);
+    override fun onBindViewHolder(holder: InvoiceViewHolder, position: Int) {
+        // getItem(position) es proporcionado por ListAdapter y es seguro
+        holder.bind(getItem(position))
     }
-
-    @SuppressLint("SetTextI18n")
-    @Override
-    public void onBindViewHolder(@NonNull InvoiceViewHolder holder, int position) {
-        Invoice factura = listaFacturas.get(position);
-        Context context = holder.itemView.getContext();
-
-        bindFecha(holder, factura, context);
-        bindImporte(holder, factura);
-        bindEstado(holder, factura, context);
-
-        holder.itemView.setOnClickListener(this::showPopup);
-    }
-
-    @Override
-    public int getItemCount() {
-        return listaFacturas != null ? listaFacturas.size() : 0;
-    }
-
-    // ===== Métodos privados de binding =====
 
     /**
-     * Vincula la fecha de la factura al TextView correspondiente.
-     * Si no hay fecha válida, muestra un placeholder.
+     * ViewHolder interno que encapsula la lógica de vinculación de datos.
+     * Esto cumple con el principio de responsabilidad única (SRP).
      */
-    private void bindFecha(InvoiceViewHolder holder, Invoice factura, Context context) {
-        String fechaTexto = DateUtils.formatDate(factura.getInvoiceDate());
-        if (!fechaTexto.isEmpty()) {
-            holder.binding.txtFecha.setText(fechaTexto);
-        } else {
-            holder.binding.txtFecha.setText(context.getString(R.string.sin_fecha));
+    inner class InvoiceViewHolder(private val binding: ItemInvoiceBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(factura: Invoice) {
+            val context = itemView.context
+
+            bindFecha(factura, context)
+            bindImporte(factura)
+            bindEstado(factura, context)
+
+            itemView.setOnClickListener { showPopup(context) }
+        }
+
+        private fun bindFecha(factura: Invoice, context: Context) {
+            binding.txtFecha.text = DateUtils.formatDate(factura.invoiceDate).ifEmpty {
+                context.getString(R.string.sin_fecha)
+            }
+        }
+
+        private fun bindImporte(factura: Invoice) {
+            binding.txtImporte.text = String.format(Locale.getDefault(), "%.2f €", factura.invoiceAmount)
+        }
+
+        private fun bindEstado(factura: Invoice, context: Context) {
+            val estado = factura.estadoEnum
+
+            // Si es pagada, ocultamos según requerimiento, de lo contrario configuramos y mostramos
+            if (estado == InvoiceState.PAID) {
+                binding.txtEstado.visibility = View.GONE
+                return
+            }
+
+            binding.txtEstado.apply {
+                visibility = View.VISIBLE
+
+                // Centralizamos la lógica de color y texto
+                when (estado) {
+                    InvoiceState.PENDING, InvoiceState.CANCELLED -> {
+                        setText(if (estado == InvoiceState.PENDING) R.string.estado_pendiente else R.string.estado_anulada)
+                        setTextColor(ContextCompat.getColor(context, R.color.texto_alerta))
+                    }
+                    InvoiceState.FIXED_FEE, InvoiceState.PAYMENT_PLAN -> {
+                        setText(if (estado == InvoiceState.FIXED_FEE) R.string.estado_cuota_fija else R.string.estado_plan_pago)
+                        setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    }
+                    else -> {
+                        text = factura.invoiceStatus
+                        setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    }
+                }
+            }
         }
     }
 
     /**
-     * Vincula el importe de la factura con formato de moneda (EUR).
+     * Muestra un diálogo informativo.
+     * Se extrae el Context del ViewHolder para mayor limpieza.
      */
-    private void bindImporte(InvoiceViewHolder holder, Invoice factura) {
-        holder.binding.txtImporte.setText(
-                String.format(Locale.getDefault(), "%.2f €", factura.getInvoiceAmount())
-        );
+    private fun showPopup(context: Context) {
+        AlertDialog.Builder(context)
+            .setTitle("Información")
+            .setMessage("Esta funcionalidad aún no está disponible")
+            .setPositiveButton("Cerrar") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     /**
-     * Vincula el estado de la factura con texto y color apropiados.
-     * Gestiona visibilidad condicional según el tipo de estado (pagada se oculta, resto visible).
+     * Callback para calcular las diferencias entre listas de forma optimizada.
+     * Permite animaciones automáticas en el filtrado.
      */
-    private void bindEstado(InvoiceViewHolder holder, Invoice factura, Context context) {
-        InvoiceState estadoEnum = factura.getEstadoEnum();
+    class InvoiceDiffCallback : DiffUtil.ItemCallback<Invoice>() {
+        override fun areItemsTheSame(oldItem: Invoice, newItem: Invoice): Boolean =
+            oldItem.invoiceID == newItem.invoiceID
 
-        switch (estadoEnum) {
-            case PENDING:
-                holder.binding.txtEstado.setText(R.string.estado_pendiente);
-                holder.binding.txtEstado.setTextColor(
-                        ContextCompat.getColor(context, R.color.texto_alerta)
-                );
-                holder.binding.txtEstado.setVisibility(View.VISIBLE);
-                break;
-
-            case PAID:
-                holder.binding.txtEstado.setVisibility(View.GONE);
-                break;
-
-            case CANCELLED:
-                holder.binding.txtEstado.setText(R.string.estado_anulada);
-                holder.binding.txtEstado.setTextColor(
-                        ContextCompat.getColor(context, R.color.texto_alerta)
-                );
-                holder.binding.txtEstado.setVisibility(View.VISIBLE);
-                break;
-
-            case FIXED_FEE:
-                holder.binding.txtEstado.setText(R.string.estado_cuota_fija);
-                holder.binding.txtEstado.setTextColor(
-                        ContextCompat.getColor(context, android.R.color.black)
-                );
-                holder.binding.txtEstado.setVisibility(View.VISIBLE);
-                break;
-
-            case PAYMENT_PLAN:
-                holder.binding.txtEstado.setText(R.string.estado_plan_pago);
-                holder.binding.txtEstado.setTextColor(
-                        ContextCompat.getColor(context, android.R.color.black)
-                );
-                holder.binding.txtEstado.setVisibility(View.VISIBLE);
-                break;
-
-            default:
-                holder.binding.txtEstado.setText(factura.getInvoiceStatus());
-                holder.binding.txtEstado.setVisibility(View.VISIBLE);
-                break;
-        }
-    }
-
-    /**
-     * Muestra un diálogo informativo al hacer click en un item.
-     * Funcionalidad de detalle pendiente de implementación.
-     */
-    private void showPopup(View view) {
-        new AlertDialog.Builder(view.getContext())
-                .setTitle("Información")
-                .setMessage("Esta funcionalidad aún no está disponible")
-                .setPositiveButton("Cerrar", (dialog, which) -> dialog.dismiss())
-                .show();
-    }
-
-    // ===== ViewHolder interno =====
-
-    public static class InvoiceViewHolder extends RecyclerView.ViewHolder {
-        private final ItemInvoiceBinding binding;
-
-        public InvoiceViewHolder(ItemInvoiceBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
-        }
+        override fun areContentsTheSame(oldItem: Invoice, newItem: Invoice): Boolean =
+            oldItem == newItem
     }
 }

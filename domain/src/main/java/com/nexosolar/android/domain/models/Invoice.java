@@ -2,6 +2,7 @@ package com.nexosolar.android.domain.models;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.Objects;
 
 /**
  * Entidad pura de Dominio que representa una factura.
@@ -77,5 +78,20 @@ public class Invoice implements Serializable {
      */
     public InvoiceState getEstadoEnum() {
         return InvoiceState.fromServerValue(this.invoiceStatus);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Invoice invoice = (Invoice) o;
+        return Objects.equals(invoiceID, invoice.invoiceID) &&
+                Double.compare(invoice.invoiceAmount, invoiceAmount) == 0 &&
+                Objects.equals(invoiceDate, invoice.invoiceDate);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(invoiceID, invoiceAmount, invoiceDate);
     }
 }
