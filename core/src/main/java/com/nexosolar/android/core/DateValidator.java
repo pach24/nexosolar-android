@@ -1,5 +1,7 @@
 package com.nexosolar.android.core;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.time.LocalDate;
 
 /**
@@ -12,7 +14,7 @@ public class DateValidator {
      * Valida coherencia de rango de fechas (permite nulos).
      * @return true si el rango es coherente o si alguno es null.
      */
-    public static boolean isValidRange(LocalDate start, LocalDate end) {
+    public static boolean isValidRange(@Nullable LocalDate start, @Nullable LocalDate end) {
         if (start == null || end == null) return true;
         return !start.isAfter(end);
     }

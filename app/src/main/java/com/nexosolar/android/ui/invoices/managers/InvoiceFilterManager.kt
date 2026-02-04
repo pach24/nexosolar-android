@@ -1,153 +1,143 @@
-package com.nexosolar.android.ui.invoices.managers;
+package com.nexosolar.android.ui.invoices.managers
 
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
-
-import com.nexosolar.android.core.DateValidator;
-import com.nexosolar.android.domain.models.Invoice;
-import com.nexosolar.android.domain.models.InvoiceFilters;
-import com.nexosolar.android.domain.models.InvoiceState;
-import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase;
-
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import com.nexosolar.android.core.DateValidator
+import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.models.InvoiceFilters
+import com.nexosolar.android.domain.models.InvoiceState
+import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
+import java.time.LocalDate
 
 /**
  * Gestor especializado en el ESTADO de los filtros.
  *
- * - SRP: Solo gestiona el estado y orquesta el filtrado.
+ * - Solo gestiona el estado y orquesta el filtrado.
  * - Delegación: Usa DateValidator para validación y InvoiceStatisticsCalculator para valores por defecto.
  */
-public class InvoiceFilterManager {
+class InvoiceFilterManager(
+    private val filterUseCase: FilterInvoicesUseCase
+) {
+    private val calculator = InvoiceStatisticsCalculator()
 
-    private final FilterInvoicesUseCase filterUseCase;
-    private final InvoiceStatisticsCalculator calculator;
+    private val _currentFilters = MutableLiveData<InvoiceFilters>()
+    private val _validationError = MutableLiveData<String?>()
 
-    private final MutableLiveData<InvoiceFilters> _currentFilters = new MutableLiveData<>();
-    private final MutableLiveData<String> _validationError = new MutableLiveData<>();
-
-    public InvoiceFilterManager(FilterInvoicesUseCase filterUseCase) {
-        this.filterUseCase = filterUseCase;
-        this.calculator = new InvoiceStatisticsCalculator(); // Podría inyectarse también
-        initializeDefaultFilters();
+    init {
+        initializeDefaultFilters()
     }
 
     // ===== Getters =====
-
-    public LiveData<InvoiceFilters> getCurrentFilters() {
-        return _currentFilters;
-    }
-
-    public LiveData<String> getValidationError() {
-        return _validationError;
-    }
+    val currentFilters: LiveData<InvoiceFilters> get() = _currentFilters
+    val validationError: LiveData<String?> get() = _validationError
 
     // ===== Gestión de Estado =====
-
-    public void updateFilters(InvoiceFilters filters) {
+    fun updateFilters(filters: InvoiceFilters?) {
+        // 1. Si es nulo, error y salir.
         if (filters == null) {
-            _validationError.setValue("Los filtros no pueden ser nulos");
-            return;
+            _validationError.value = "Los filtros no pueden ser nulos"
+            return
         }
 
-        // Auto-corrección defensiva (evita toasts por fechas cruzadas).
-        LocalDate start = filters.getStartDate();
-        LocalDate end = filters.getEndDate();
+        // 2. A partir de aquí 'filters' es seguro, pero para evitar problemas con LiveData
+        // creamos una referencia local no nula explícita.
+        val safeFilters: InvoiceFilters = filters
+
+        // Auto-corrección defensiva
+        val start = safeFilters.startDate
+        val end = safeFilters.endDate
+
         if (start != null && end != null && start.isAfter(end)) {
-            filters.setStartDate(end);
-            filters.setEndDate(start);
+            safeFilters.startDate = end
+            safeFilters.endDate = start
         }
 
-        // USO DE DATE VALIDATOR: Validación delegada
-        if (DateValidator.isValidRange(filters.getStartDate(), filters.getEndDate())) {
-            _currentFilters.setValue(filters);
-            _validationError.setValue(null);
+        // USO DE DATE VALIDATOR
+        // Usamos safeFilters en todo el bloque
+        if (DateValidator.isValidRange(safeFilters.startDate, safeFilters.endDate)) {
+            _currentFilters.value = safeFilters // ¡Ahora sí! Coinciden los tipos
+            _validationError.value = null
         } else {
-            // Si aún así fuese inválido, no reventamos la UX: dejamos el error disponible.
-            _validationError.setValue("La fecha de inicio no puede ser posterior a la fecha final");
+            _validationError.value = "La fecha de inicio no puede ser posterior a la fecha final"
         }
     }
 
-    public void resetFilters(List<Invoice> invoices) {
-        InvoiceFilters defaultFilters = new InvoiceFilters();
 
-        defaultFilters.setStartDate(null);
-        defaultFilters.setEndDate(null);
-        defaultFilters.setMinAmount(0.0);
+    fun resetFilters(invoices: List<Invoice>?) {
+        val defaultFilters = InvoiceFilters()
+        defaultFilters.startDate = null
+        defaultFilters.endDate = null
+        defaultFilters.minAmount = 0.0
 
         // USO DE CALCULATOR: Delegamos el cálculo del máximo
-        float maxAmount = calculator.calculateMaxAmount(invoices);
-        defaultFilters.setMaxAmount((double) maxAmount);
+        val maxAmount = calculator.calculateMaxAmount(invoices)
+        defaultFilters.maxAmount = maxAmount.toDouble()
 
         // Lista vacía = “sin filtrar por estado” (y en applyCurrentFilters se interpreta como TODOS)
-        defaultFilters.setFilteredStates(new ArrayList<>());
+        defaultFilters.filteredStates = ArrayList()
 
-        _currentFilters.setValue(defaultFilters);
-        _validationError.setValue(null);
+        _currentFilters.value = defaultFilters
+        _validationError.value = null
     }
 
     // ===== Ejecución de Filtros =====
-
-    public List<Invoice> applyCurrentFilters(List<Invoice> invoices) {
-        InvoiceFilters filters = _currentFilters.getValue();
-        if (filters == null || invoices == null || invoices.isEmpty()) {
-            return new ArrayList<>();
+    fun applyCurrentFilters(invoices: List<Invoice>?): List<Invoice> {
+        val filters = _currentFilters.value
+        if (filters == null || invoices.isNullOrEmpty()) {
+            return emptyList()
         }
 
-        List<String> statesToFilter = filters.getFilteredStates();
+        var statesToFilter = filters.filteredStates
+
         // REGLA: Lista vacía = Todos los estados
-        if (statesToFilter == null || statesToFilter.isEmpty()) {
-            statesToFilter = new ArrayList<>();
-            for (InvoiceState state : InvoiceState.values()) {
-                statesToFilter.add(state.getServerValue());
+        if (statesToFilter.isNullOrEmpty()) {
+            statesToFilter = ArrayList()
+            for (state in InvoiceState.values()) {
+                statesToFilter.add(state.serverValue)
             }
         }
 
         // REGLA: Fechas nulas = Extremos del dataset
         // Calculamos fechas efectivas TEMPORALES solo para esta ejecución
-        LocalDate effectiveStart = filters.getStartDate();
-        LocalDate effectiveEnd = filters.getEndDate();
+        var effectiveStart = filters.startDate
+        var effectiveEnd = filters.endDate
 
         if (effectiveStart == null) {
-            effectiveStart = calculator.calculateOldestDate(invoices);
+            effectiveStart = calculator.calculateOldestDate(invoices)
         }
+
         if (effectiveEnd == null) {
-            effectiveEnd = calculator.calculateNewestDate(invoices);
-            if (effectiveEnd == null) effectiveEnd = LocalDate.now();
+            effectiveEnd = calculator.calculateNewestDate(invoices)
+            if (effectiveEnd == null) effectiveEnd = LocalDate.now()
         }
 
         return filterUseCase.execute(
-                invoices,
-                statesToFilter,
-                effectiveStart, // Usamos las fechas efectivas
-                effectiveEnd,   // Usamos las fechas efectivas
-                filters.getMinAmount(),
-                filters.getMaxAmount()
-        );
+            invoices,
+            statesToFilter,
+            effectiveStart, // Usamos las fechas efectivas
+            effectiveEnd,   // Usamos las fechas efectivas
+            filters.minAmount,
+            filters.maxAmount
+        )
     }
-
 
     // ===== Métodos de Consulta de Estado =====
+    fun hasActiveFilters(): Boolean {
+        val filters = _currentFilters.value ?: return false
 
-    public boolean hasActiveFilters() {
-        InvoiceFilters filters = _currentFilters.getValue();
-        if (filters == null) return false;
-
-
-        if (filters.getFilteredStates() != null && !filters.getFilteredStates().isEmpty()) return true;
-        if (filters.getStartDate() != null || filters.getEndDate() != null) return true;
+        if (!filters.filteredStates.isNullOrEmpty()) return true
+        if (filters.startDate != null || filters.endDate != null) return true
 
         // Comprobamos si el rango es distinto al por defecto (0 - MAX)
-        return filters.getMinAmount() > 0 ||
-                (filters.getMaxAmount() != null && filters.getMaxAmount() < Double.MAX_VALUE);
+        val maxAmount = filters.maxAmount
+        return filters.minAmount > 0 || (maxAmount != null && maxAmount < Double.MAX_VALUE)
     }
 
-    private void initializeDefaultFilters() {
-        InvoiceFilters defaultFilters = new InvoiceFilters();
-        defaultFilters.setMinAmount(0.0);
-        defaultFilters.setMaxAmount(Double.MAX_VALUE);
-        defaultFilters.setFilteredStates(new ArrayList<>());
-        _currentFilters.setValue(defaultFilters);
+    private fun initializeDefaultFilters() {
+        val defaultFilters = InvoiceFilters()
+        defaultFilters.minAmount = 0.0
+        defaultFilters.maxAmount = Double.MAX_VALUE
+        defaultFilters.filteredStates = ArrayList()
+        _currentFilters.value = defaultFilters
     }
 }

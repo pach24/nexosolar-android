@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -27,6 +28,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 }
 
 dependencies {
@@ -34,7 +38,8 @@ dependencies {
     // 1. Módulos propios
     implementation(project(":domain"))       // Para ver InvoiceRepository (Interfaz) e Invoice (Modelo)
     implementation(project(":data-retrofit")) // Para ver ApiService y descargar datos
-    implementation(project(":core"))         // Para utilidades compartidas
+    implementation(project(":core"))
+    implementation(libs.core.ktx)         // Para utilidades compartidas
 
     // 2. Room (Copiado de :app)
     val roomVersion = "2.6.1"

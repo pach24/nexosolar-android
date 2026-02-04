@@ -1,63 +1,60 @@
-package com.nexosolar.android.ui.invoices.managers;
+package com.nexosolar.android.ui.invoices.managers
 
+import com.nexosolar.android.domain.models.Invoice
+import java.time.LocalDate
 
-import com.nexosolar.android.domain.models.Invoice;
-
-import java.time.LocalDate;
-import java.util.List;
 
 /**
- * Responsabilidad: Realizar cálculos estadísticos sobre una lista de facturas.
- * - Extraído de InvoiceFilterManager para cumplir SRP.
- * - Es una clase pura sin estado (Stateless).
+ * Clase para calcular datos derivados de las facturas
+ * Ejemplo, importe mínimo, máximo, fecha más antigua, fecha más nueva
  */
-public class InvoiceStatisticsCalculator {
 
-    public float calculateMaxAmount(List<Invoice> invoices) {
+class InvoiceStatisticsCalculator {
+    fun calculateMaxAmount(invoices: List<Invoice>?): Float {
         if (invoices == null || invoices.isEmpty()) {
-            return 0f;
+            return 0f
         }
 
-        float max = 0f;
-        for (Invoice invoice : invoices) {
-            if (invoice.getInvoiceAmount() > max) {
-                max = invoice.getInvoiceAmount();
+        var max = 0f
+        for (invoice in invoices) {
+            if (invoice.invoiceAmount > max) {
+                max = invoice.invoiceAmount
             }
         }
-        return max;
+        return max
     }
 
-    public LocalDate calculateOldestDate(List<Invoice> invoices) {
+    fun calculateOldestDate(invoices: List<Invoice>?): LocalDate? {
         if (invoices == null || invoices.isEmpty()) {
-            return null;
+            return null
         }
 
-        LocalDate oldest = null;
-        for (Invoice invoice : invoices) {
-            LocalDate current = invoice.getInvoiceDate();
+        var oldest: LocalDate? = null
+        for (invoice in invoices) {
+            val current = invoice.invoiceDate
             if (current != null) {
                 if (oldest == null || current.isBefore(oldest)) {
-                    oldest = current;
+                    oldest = current
                 }
             }
         }
-        return oldest;
+        return oldest
     }
 
-    public LocalDate calculateNewestDate(List<Invoice> invoices) {
+    fun calculateNewestDate(invoices: List<Invoice>?): LocalDate? {
         if (invoices == null || invoices.isEmpty()) {
-            return null;
+            return null
         }
 
-        LocalDate newest = null;
-        for (Invoice invoice : invoices) {
-            LocalDate current = invoice.getInvoiceDate();
+        var newest: LocalDate? = null
+        for (invoice in invoices) {
+            val current = invoice.invoiceDate
             if (current != null) {
                 if (newest == null || current.isAfter(newest)) {
-                    newest = current;
+                    newest = current
                 }
             }
         }
-        return newest;
+        return newest
     }
 }
