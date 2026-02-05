@@ -1,6 +1,7 @@
 plugins {
 
     id("com.android.library")
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -49,6 +50,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
 }
 
 dependencies {
@@ -61,6 +65,7 @@ dependencies {
 
     // Retromock
     implementation("co.infinum:retromock:1.1.0")
+    implementation(libs.core.ktx)
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

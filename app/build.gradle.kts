@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    id("kotlin-parcelize")
 }
 
 android {
@@ -29,6 +31,9 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
 }
 
 dependencies {
@@ -45,6 +50,7 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("com.facebook.shimmer:shimmer:0.5.0")
+    implementation(libs.core.ktx)
 
     // --- LIFECYCLE & VIEWMODEL ---
     val lifecycleVersion = "2.8.7"
@@ -64,4 +70,10 @@ dependencies {
 
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // --- KOTLIN & COROUTINES ---
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Asegúrate de tener viewmodel-ktx para 'viewModelScope'
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+    implementation("androidx.fragment:fragment-ktx:1.8.1") // Para 'activityViewModels' delegado
 }
