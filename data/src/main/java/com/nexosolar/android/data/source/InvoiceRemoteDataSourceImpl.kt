@@ -1,24 +1,18 @@
 package com.nexosolar.android.data.source
 
-import android.util.Log
 import com.nexosolar.android.data.InvoiceMapper
 import com.nexosolar.android.data.local.InvoiceEntity
 import com.nexosolar.android.data.remote.ApiService
 import com.nexosolar.android.data.remote.InvoiceResponse
-import com.nexosolar.android.domain.repository.RepositoryCallback
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
- * Implementación del origen de datos remoto para facturas usando Retrofit.
+ * Implementación del origen de datos remoto para facturas usando Retrofit con corrutinas.
  *
- * Encapsula toda la lógica de comunicación con la API REST, incluyendo
- * el manejo de respuestas HTTP y el mapeo de DTOs (InvoiceResponse) a
- * entidades de base de datos (InvoiceEntity).
- *
- * Esta capa actúa como barrera entre el protocolo HTTP y el resto de la
- * aplicación, traduciendo errores de red en excepciones manejables.
+ * Encapsula toda la lógica de comunicación con la API REST, convirtiendo
+ * los callbacks de Retrofit en suspend functions mediante suspendCancellableCoroutine.
  */
 class InvoiceRemoteDataSourceImpl(
     private val apiService: ApiService
@@ -26,34 +20,37 @@ class InvoiceRemoteDataSourceImpl(
 
     private val mapper = InvoiceMapper
 
-    /**
-     * Obtiene facturas desde la API y las transforma a entidades.
-     *
-     * Realiza la llamada HTTP asíncrona, valida la respuesta y mapea los DTOs
-     * de la respuesta JSON a entidades de Room. Los errores HTTP se convierten
-     * en excepciones con mensajes descriptivos.
-     *
-     * @param callback Callback para notificar el resultado de la operación
-     */
-    override fun getFacturas(callback: RepositoryCallback<List<InvoiceEntity>>) {
-        apiService.getFacturas().enqueue(object : Callback<InvoiceResponse> {
-            override fun onResponse(
-                call: Call<InvoiceResponse>,
-                response: Response<InvoiceResponse>
-            ) {
-                if (response.isSuccessful && response.body() != null) {
-                    val entities = mapper.toEntityListFromDto(response.body()?.facturas)
-                    callback.onSuccess(entities)
-                } else {
-                    callback.onError(Exception("Error del servidor: ${response.code()}"))
-                }
-            }
+    override suspend fun getFacturas(): List<InvoiceEntity> {
+        return suspendCancellableCoroutine { continuation ->
+            val call = apiService.getFacturas()
 
-            override fun onFailure(call: Call<InvoiceResponse>, t: Throwable) {
-                Log.e("API_DEBUG", "Fallo total: ${t.message}") // <--- MIRA ESTO EN LOGCAT
-                t.printStackTrace()
-                callback.onError(t)
+            call.enqueue(object : retrofit2.Callback<InvoiceResponse> {
+                override fun onResponse(
+                    call: retrofit2.Call<InvoiceResponse>,
+                    response: retrofit2.Response<InvoiceResponse>
+                ) {
+                    if (response.isSuccessful && response.body() != null) {
+                        val entities = mapper.toEntityListFromDto(response.body()?.facturas)
+                        continuation.resume(entities)
+                    } else {
+                        continuation.resumeWithException(
+                            Exception("Error del servidor: ${response.code()}")
+                        )
+                    }
+                }
+
+                override fun onFailure(
+                    call: retrofit2.Call<InvoiceResponse>,
+                    t: Throwable
+                ) {
+                    continuation.resumeWithException(t)
+                }
+            })
+
+            // Cancela la llamada si la coroutine se cancela
+            continuation.invokeOnCancellation {
+                call.cancel()
             }
-        })
+        }
     }
 }

@@ -1,29 +1,34 @@
-package com.nexosolar.android.domain.usecase.invoice;
+package com.nexosolar.android.domain.usecase.invoice
 
-import com.nexosolar.android.domain.repository.RepositoryCallback;
-import com.nexosolar.android.domain.models.Invoice;
-import com.nexosolar.android.domain.repository.InvoiceRepository;
-
-import java.util.List;
+import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.repository.InvoiceRepository
 
 /**
- * Caso de uso encargado de obtener el listado de facturas.
- * Proporciona al ViewModel la lista de facturas
+ * Caso de uso para obtener el listado de facturas.
+ *
+ * Encapsula la lógica de negocio de carga de facturas,
+ * delegando en el repositorio la estrategia de caché.
  */
+class GetInvoicesUseCase(
+    private val repository: InvoiceRepository
+) {
 
-public class GetInvoicesUseCase {
-    private final InvoiceRepository repository;
-
-    public GetInvoicesUseCase(InvoiceRepository repository) {
-        this.repository = repository;
+    /**
+     * Ejecuta el caso de uso para obtener facturas.
+     *
+     * @return Lista de facturas
+     * @throws Exception si ocurre un error
+     */
+    suspend operator fun invoke(): List<Invoice> {
+        return repository.getInvoices()
     }
 
-
-    public void invoke(RepositoryCallback<List<Invoice>> callback) {
-        repository.getInvoices(callback);
-    }
-
-    public void refresh(RepositoryCallback<Boolean> callback) {
-        repository.refreshInvoices(callback);
+    /**
+     * Fuerza la actualización de facturas desde el servidor.
+     *
+     * @throws Exception si ocurre un error
+     */
+    suspend fun refresh() {
+        repository.refreshInvoices()
     }
 }

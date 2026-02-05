@@ -2,17 +2,16 @@ package com.nexosolar.android.data.repository
 
 import com.nexosolar.android.data.InstallationMapper
 import com.nexosolar.android.data.remote.ApiService
-import com.nexosolar.android.data.remote.InstallationDTO
 import com.nexosolar.android.domain.models.Installation
 import com.nexosolar.android.domain.repository.InstallationRepository
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
- * Implementación del repositorio para gestionar datos de instalaciones solares.
+ * Implementación del repositorio para gestionar datos de instalaciones solares con corrutinas.
  *
  * Actúa como intermediario entre la capa de dominio y la fuente de datos remota (API).
  * Solo maneja datos remotos ya que la información de instalaciones se consulta
@@ -22,31 +21,43 @@ class InstallationRepositoryImpl(
     private val apiService: ApiService
 ) : InstallationRepository {
 
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    override suspend fun getInstallationDetails(): Installation = withContext(Dispatchers.IO) {
+        suspendCancellableCoroutine { continuation ->
+            val call = apiService.getInstallationDetails()
 
-    /**
-     * Obtiene los detalles de la instalación desde la API remota.
-     *
-     * @param callback Callback para notificar el resultado de la operación
-     */
-    override fun getInstallationDetails(callback: InstallationRepository.InstallationCallback) {
-        apiService.getInstallationDetails().enqueue(object : Callback<InstallationDTO> {
-            override fun onResponse(call: Call<InstallationDTO>, response: Response<InstallationDTO>) {
-                executor.execute {
+            call.enqueue(object : retrofit2.Callback<com.nexosolar.android.data.remote.InstallationDTO> {
+                override fun onResponse(
+                    call: retrofit2.Call<com.nexosolar.android.data.remote.InstallationDTO>,
+                    response: retrofit2.Response<com.nexosolar.android.data.remote.InstallationDTO>
+                ) {
                     if (response.isSuccessful && response.body() != null) {
                         val installation = InstallationMapper.toDomain(response.body()!!)
-                        callback.onSuccess(installation)
+                        if (installation != null) {
+                            continuation.resume(installation)
+                        } else {
+                            continuation.resumeWithException(
+                                Exception("Error al mapear instalación")
+                            )
+                        }
                     } else {
-                        callback.onError("Error del servidor: ${response.code()}")
+                        continuation.resumeWithException(
+                            Exception("Error del servidor: ${response.code()}")
+                        )
                     }
                 }
-            }
 
-            override fun onFailure(call: Call<InstallationDTO>, t: Throwable) {
-                executor.execute {
-                    callback.onError("Error de conexión: ${t.message}")
+                override fun onFailure(
+                    call: retrofit2.Call<com.nexosolar.android.data.remote.InstallationDTO>,
+                    t: Throwable
+                ) {
+                    continuation.resumeWithException(t)
                 }
+            })
+
+            // Cancela la llamada si la coroutine se cancela
+            continuation.invokeOnCancellation {
+                call.cancel()
             }
-        })
+        }
     }
 }

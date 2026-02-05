@@ -6,12 +6,11 @@ import com.nexosolar.android.data.local.InvoiceEntity
 import com.nexosolar.android.data.source.InvoiceRemoteDataSource
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.repository.InvoiceRepository
-import com.nexosolar.android.domain.repository.RepositoryCallback
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Implementación del repositorio de facturas siguiendo el patrón Repository.
+ * Implementación del repositorio de facturas con corrutinas.
  *
  * Responsabilidades:
  * - Gestionar la estrategia de caché (local vs remoto)
@@ -31,66 +30,42 @@ class InvoiceRepositoryImpl(
 ) : InvoiceRepository {
 
     private val mapper = InvoiceMapper
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    // ❌ ELIMINAR: private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    override fun getInvoices(callback: RepositoryCallback<List<Invoice>>) {
-        executor.execute {
-            val localData = localDataSource.getAllList()
-            val hasData = !localData.isNotEmpty()
+    override suspend fun getInvoices(): List<Invoice> = withContext(Dispatchers.IO) {
+        val localData = localDataSource.getAllList()
+        val hasData = localData.isNotEmpty()
 
-            if (alwaysReload || !hasData) {
-                fetchFromNetwork(callback, localData)
-            } else {
-                // Devuelve caché local
-                callback.onSuccess(mapper.toDomainList(localData))
-            }
+        if (alwaysReload || !hasData) {
+            fetchFromNetwork(localData)
+        } else {
+            mapper.toDomainList(localData)
         }
     }
 
-    override fun refreshInvoices(callback: RepositoryCallback<Boolean>?) {
-        remoteDataSource.getFacturas(object : RepositoryCallback<List<InvoiceEntity>> {
-            override fun onSuccess(entities: List<InvoiceEntity>) {
-                executor.execute {
-                    saveToDatabase(entities)
-                    callback?.onSuccess(true)
-                }
-            }
-
-            override fun onError(error: Throwable) {
-                callback?.onError(error)
-            }
-        })
+    override suspend fun refreshInvoices() = withContext(Dispatchers.IO) {
+        val entities = remoteDataSource.getFacturas()
+        saveToDatabase(entities)
     }
 
     /**
      * Obtiene facturas desde la red y gestiona el fallback a caché.
      *
-     * @param callback Callback para notificar resultado
      * @param localCache Caché local disponible para fallback
+     * @return Lista de facturas del dominio
      */
-    private fun fetchFromNetwork(
-        callback: RepositoryCallback<List<Invoice>>,
-        localCache: List<InvoiceEntity>?
-    ) {
-        remoteDataSource.getFacturas(object : RepositoryCallback<List<InvoiceEntity>> {
-            override fun onSuccess(entities: List<InvoiceEntity>) {
-                executor.execute {
-                    saveToDatabase(entities)
-                    callback.onSuccess(mapper.toDomainList(entities))
-                }
+    private suspend fun fetchFromNetwork(localCache: List<InvoiceEntity>): List<Invoice> {
+        return try {
+            val entities = remoteDataSource.getFacturas()
+            saveToDatabase(entities)
+            mapper.toDomainList(entities)
+        } catch (e: Exception) {
+            if (localCache.isNotEmpty()) {
+                mapper.toDomainList(localCache)
+            } else {
+                throw e
             }
-
-            override fun onError(error: Throwable) {
-                executor.execute {
-                    if (!localCache.isNullOrEmpty()) {
-                        // Devuelve caché como fallback
-                        callback.onSuccess(mapper.toDomainList(localCache))
-                    } else {
-                        callback.onError(error)
-                    }
-                }
-            }
-        })
+        }
     }
 
     /**
@@ -99,7 +74,7 @@ class InvoiceRepositoryImpl(
      *
      * @param entities Lista de entidades a guardar
      */
-    private fun saveToDatabase(entities: List<InvoiceEntity>) {
+    private suspend fun saveToDatabase(entities: List<InvoiceEntity>) {
         localDataSource.deleteAll()
         localDataSource.insertAll(entities)
     }

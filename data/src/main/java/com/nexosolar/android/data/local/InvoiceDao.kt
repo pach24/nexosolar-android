@@ -21,7 +21,7 @@ interface InvoiceDao {
      * @return Lista de entidades de facturas, o lista vacía si no hay datos
      */
     @Query("SELECT * FROM facturas")
-    fun getAllList(): List<InvoiceEntity>
+    suspend fun getAllList(): List<InvoiceEntity>
 
     /**
      * Inserta o actualiza un lote de facturas en la base de datos.
@@ -32,7 +32,7 @@ interface InvoiceDao {
      * @param facturas Lista de entidades a insertar o actualizar
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertAll(facturas: List<InvoiceEntity>)
+    suspend fun insertAll(facturas: List<InvoiceEntity>)
 
     /**
      * Elimina todas las facturas de la base de datos.
@@ -41,5 +41,5 @@ interface InvoiceDao {
      * sincronización completa sin datos obsoletos.
      */
     @Query("DELETE FROM facturas")
-    fun deleteAll()
+    suspend fun deleteAll()
 }

@@ -1,29 +1,21 @@
-package com.nexosolar.android.domain.repository;
+package com.nexosolar.android.domain.repository
 
-import com.nexosolar.android.domain.models.Installation;
+import com.nexosolar.android.domain.models.Installation
 
 /**
  * Contrato de repositorio para la gestión de datos de instalaciones.
  * Abstrae la fuente de datos (API/Cache) de la capa de dominio.
+ *
+ * Usa corrutinas para operaciones asíncronas. El manejo de errores se realiza
+ * mediante excepciones que los casos de uso capturan con try-catch.
  */
-public interface InstallationRepository {
-
-    // ===== Métodos públicos =====
+interface InstallationRepository {
 
     /**
      * Recupera los detalles técnicos de la instalación asociada al usuario.
-     * @param callback Mecanismo de retorno asíncrono.
+     *
+     * @return Detalles de la instalación solar
+     * @throws Exception si ocurre un error de red o parsing
      */
-    void getInstallationDetails(InstallationCallback callback);
-
-    // ===== Interfaces internas =====
-
-    /**
-     * Contrato específico para la respuesta de detalles de instalación.
-     * Permite manejar casos de éxito y error de forma tipada.
-     */
-    interface InstallationCallback {
-        void onSuccess(Installation installation);
-        void onError(String errorMessage);
-    }
+    suspend fun getInstallationDetails(): Installation
 }

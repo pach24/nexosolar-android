@@ -11,10 +11,11 @@ import com.nexosolar.android.data.repository.InvoiceRepositoryImpl
 import com.nexosolar.android.data.source.InvoiceRemoteDataSourceImpl
 import com.nexosolar.android.domain.repository.InstallationRepository
 import com.nexosolar.android.domain.repository.InvoiceRepository
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 /**
- * Módulo de inyección de dependencias manual para la capa de datos.
+ * Módulo de inyección de dependencias manual para la capa de datos con corrutinas.
  *
  * Responsabilidades:
  * - Proveer instancias configuradas de repositorios
@@ -116,16 +117,16 @@ class DataModule(
     /**
      * Limpia la base de datos local de forma síncrona cuando cambia la configuración.
      *
-     * Usa un executor de un solo hilo para garantizar que la operación se complete
-     * antes de continuar con la nueva configuración.
+     * Usa runBlocking para ejecutar la operación suspend de forma síncrona,
+     * garantizando que se complete antes de continuar con la nueva configuración.
      *
      * @param invoiceDao DAO para ejecutar la operación de limpieza
      */
     private fun clearDatabaseOnModeSwitch(invoiceDao: InvoiceDao) {
         try {
-            Executors.newSingleThreadExecutor().submit {
+            runBlocking(Dispatchers.IO) { // ✅ runBlocking para ejecutar suspend de forma síncrona
                 invoiceDao.deleteAll()
-            }.get()
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

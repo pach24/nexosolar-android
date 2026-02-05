@@ -42,12 +42,16 @@ dependencies {
     implementation(project(":core"))
     implementation(libs.core.ktx)         // Para utilidades compartidas
 
-    // 2. Room (Copiado de :app)
+    // 2. Room
 
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
-
+    implementation("androidx.room:room-ktx:$roomVersion")
     kapt("androidx.room:room-compiler:2.6.1")
+
+    // Corrutinas
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

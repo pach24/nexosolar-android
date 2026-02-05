@@ -1,24 +1,19 @@
 package com.nexosolar.android.data.source
 
 import com.nexosolar.android.data.local.InvoiceEntity
-import com.nexosolar.android.domain.repository.RepositoryCallback
 
 /**
  * Interfaz para el origen de datos remoto de facturas.
  *
- * Abstrae la capa de red para facilitar testing y permitir implementaciones
- * alternativas (API real, mock local, etc.) sin afectar al repositorio.
- *
- * Devuelve InvoiceEntity en lugar de modelos de dominio para mantener
- * separación de responsabilidades: el DataSource solo obtiene datos,
- * el Repository se encarga del mapeo a dominio.
+ * Abstrae la capa de red usando corrutinas para operaciones asíncronas.
  */
 interface InvoiceRemoteDataSource {
 
     /**
      * Obtiene la lista de facturas desde la fuente remota.
      *
-     * @param callback Callback para notificar el resultado (lista de entidades o error)
+     * @return Lista de entidades de facturas
+     * @throws Exception si ocurre un error de red o parsing
      */
-    fun getFacturas(callback: RepositoryCallback<List<InvoiceEntity>>)
+    suspend fun getFacturas(): List<InvoiceEntity>
 }

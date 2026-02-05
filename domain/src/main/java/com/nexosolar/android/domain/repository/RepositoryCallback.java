@@ -5,7 +5,7 @@ package com.nexosolar.android.domain.repository;
  * Evita la dependencia de librerías de terceros (RxJava, Coroutines) en interfaces puras de Java.
  *
  * @param <T> Tipo de dato esperado en caso de éxito.
- */
+
 public interface RepositoryCallback<T> {
 
     // ===== Métodos públicos =====
@@ -14,3 +14,4 @@ public interface RepositoryCallback<T> {
 
     void onError(Throwable error);
 }
+ */
