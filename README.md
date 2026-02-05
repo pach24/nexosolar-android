@@ -5,18 +5,23 @@
 
 A native Android application focused on displaying and filtering invoice data, created to showcase clean architecture, MVVM-based presentation logic, and good development practices rather than complex business functionality.
 
-> **Last Updated:** January 2026 
+> **Last Updated:** February 2026 
+
+
 
 **Clean Architecture • MVVM • Offline-First**
 
 
-
-![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![Room](https://img.shields.io/badge/Room-42A5F5?style=for-the-badge&logo=sqlite&logoColor=white)
-![Retrofit](https://img.shields.io/badge/Retrofit-2E7D32?style=for-the-badge&logo=square&logoColor=white)
-![JUnit](https://img.shields.io/badge/Junit5-25A162?style=for-the-badge&logo=junit5&logoColor=white)
-![Mockito](https://img.shields.io/badge/Mockito-FFC107?style=for-the-badge&logo=mockito&logoColor=black)
+![SOLID](https://img.shields.io/badge/SOLID-4A90E2?style=for-the-badge)
+![MVVM](https://img.shields.io/badge/MVVM-FF6F00?style=for-the-badge&logo=android&logoColor=white)
+![Clean Architecture](https://img.shields.io/badge/Clean_Architecture-4A90E2?style=for-the-badge)
+![Retrofit](https://img.shields.io/badge/Retrofit-48B983?style=for-the-badge&logo=square&logoColor=white)
+![Room](https://img.shields.io/badge/Room-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![JUnit](https://img.shields.io/badge/JUnit5-25A162?style=for-the-badge&logo=junit5&logoColor=white)
+
+
 
 
 ---
@@ -284,9 +289,10 @@ Project with **complete unit test suite** (100% business logic coverage) using *
 This project follows an iterative improvement approach. Planned enhancements include:
 
 ### Architecture Evolution
-- **Kotlin Migration:** Transition codebase to Kotlin for null-safety, coroutines, and modern Android development
-- **Jetpack Compose:** Modernize UI layer with declarative UI framework
+- **Kotlin Migration:** ✅ In Progress - Transition codebase to Kotlin for null-safety and modern Android
+- **Jetpack Compose:** Modernize UI layer with declarative UI framework (Q2 2026)
 - **Hilt/Dagger:** Replace manual dependency injection with proper DI framework
+
 
 
 ### Code Quality
