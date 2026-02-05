@@ -1,8 +1,8 @@
-package com.nexosolar.android.data.local;
+package com.nexosolar.android.data.local
 
-import androidx.room.Entity;
-import androidx.room.PrimaryKey;
-import java.time.LocalDate;
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import java.time.LocalDate
 
 /**
  * Entidad de base de datos Room que representa una factura.
@@ -14,28 +14,17 @@ import java.time.LocalDate;
  * Requiere RoomConverters para manejar el tipo LocalDate.
  */
 @Entity(tableName = "facturas")
-public class InvoiceEntity {
-
-    // ===== Campos de la entidad =====
-
+data class InvoiceEntity(
     @PrimaryKey(autoGenerate = true)
-    public int id;
+    val id: Int = 0,
 
-    public float importe;
+    val importe: Float = 0f,
 
-    public String estado;
+    val estado: String = "",
 
     /**
      * Fecha de la factura.
      * Convertida automáticamente mediante RoomConverters (LocalDate <-> Long).
      */
-    public LocalDate fecha;
-
-    // ===== Constructores =====
-
-    /**
-     * Constructor sin argumentos requerido por Room.
-     */
-    public InvoiceEntity() {
-    }
-}
+    val fecha: LocalDate? = null
+)

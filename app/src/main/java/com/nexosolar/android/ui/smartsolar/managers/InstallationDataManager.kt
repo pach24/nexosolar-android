@@ -3,15 +3,19 @@ package com.nexosolar.android.ui.smartsolar.managers
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.nexosolar.android.domain.models.Installation
-import com.nexosolar.android.domain.repository.InstallationRepository
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 
 /**
  * Gestor especializado en el ciclo de vida de los datos de instalación solar.
+ *
+ * Responsabilidades:
+ * - Gestionar caché de instalación en memoria
+ * - Coordinar carga de datos
+ * - Exponer LiveData para observación desde la UI
  */
-class InstallationDataManager(private val repository: InstallationRepository) {
+class InstallationDataManager(
+    private val getInstallationDetailsUseCase: GetInstallationDetailsUseCase
+) {
 
     // ===== Variables de instancia =====
 
@@ -28,33 +32,32 @@ class InstallationDataManager(private val repository: InstallationRepository) {
 
     /**
      * Carga los detalles de la instalación de forma asíncrona.
-     * @return La instalación cargada.
-     * @throws Exception si ocurre un error en el repositorio.
+     *
+     * Estrategia: Si hay caché, lo retorna. Si no, consulta el repositorio.
+     *
+     * @return La instalación cargada
+     * @throws Exception si ocurre un error en el repositorio
      */
     suspend fun loadInstallationDetails(): Installation {
         // 1. Estrategia de caché: si ya tenemos datos, no vamos a red
-        if (hasCachedData()) {
-            return cachedInstallation!!
+        cachedInstallation?.let {
+            return it
         }
 
-        // 2. Si no hay caché, suspendemos hasta obtener respuesta
-        return suspendCancellableCoroutine { continuation ->
-            repository.getInstallationDetails(object : InstallationRepository.InstallationCallback {
-                override fun onSuccess(installation: Installation) {
-                    cachedInstallation = installation
-                    _installation.postValue(installation)
-                    continuation.resume(installation)
-                }
-
-                override fun onError(errorMessage: String) {
-                    continuation.resumeWithException(Exception(errorMessage))
-                }
-            })
-        }
+        // 2. Si no hay caché, llamamos al use case
+        val installation = getInstallationDetailsUseCase()
+        cachedInstallation = installation
+        _installation.postValue(installation)
+        return installation
     }
 
     // ===== Métodos de gestión de estado =====
 
+    /**
+     * Establece la instalación en el LiveData y actualiza el caché.
+     *
+     * @param installation Instalación a mostrar, o null para limpiar
+     */
     fun setInstallation(installation: Installation?) {
         _installation.postValue(installation)
         if (installation != null) {
@@ -66,6 +69,8 @@ class InstallationDataManager(private val repository: InstallationRepository) {
 
     /**
      * Verifica si hay datos en memoria.
+     *
+     * @return true si hay instalación cacheada, false en caso contrario
      */
     fun hasCachedData(): Boolean = cachedInstallation != null
 
