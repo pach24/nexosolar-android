@@ -1,8 +1,7 @@
-package com.nexosolar.android.data.source;
+package com.nexosolar.android.data.source
 
-import com.nexosolar.android.data.local.InvoiceEntity;
-import com.nexosolar.android.domain.repository.RepositoryCallback;
-import java.util.List;
+import com.nexosolar.android.data.local.InvoiceEntity
+import com.nexosolar.android.domain.repository.RepositoryCallback
 
 /**
  * Interfaz para el origen de datos remoto de facturas.
@@ -14,12 +13,12 @@ import java.util.List;
  * separación de responsabilidades: el DataSource solo obtiene datos,
  * el Repository se encarga del mapeo a dominio.
  */
-public interface InvoiceRemoteDataSource {
+interface InvoiceRemoteDataSource {
 
     /**
      * Obtiene la lista de facturas desde la fuente remota.
      *
      * @param callback Callback para notificar el resultado (lista de entidades o error)
      */
-    void getFacturas(RepositoryCallback<List<InvoiceEntity>> callback);
+    fun getFacturas(callback: RepositoryCallback<List<InvoiceEntity>>)
 }

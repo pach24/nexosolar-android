@@ -1,17 +1,15 @@
-package com.nexosolar.android.data.repository;
+package com.nexosolar.android.data.repository
 
-import com.nexosolar.android.data.InstallationMapper;
-import com.nexosolar.android.data.remote.ApiService;
-import com.nexosolar.android.data.remote.InstallationDTO;
-import com.nexosolar.android.domain.models.Installation;
-import com.nexosolar.android.domain.repository.InstallationRepository;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.nexosolar.android.data.InstallationMapper
+import com.nexosolar.android.data.remote.ApiService
+import com.nexosolar.android.data.remote.InstallationDTO
+import com.nexosolar.android.domain.models.Installation
+import com.nexosolar.android.domain.repository.InstallationRepository
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Implementación del repositorio para gestionar datos de instalaciones solares.
@@ -20,40 +18,35 @@ import retrofit2.Response;
  * Solo maneja datos remotos ya que la información de instalaciones se consulta
  * bajo demanda y no requiere persistencia local.
  */
-public class InstallationRepositoryImpl implements InstallationRepository {
+class InstallationRepositoryImpl(
+    private val apiService: ApiService
+) : InstallationRepository {
 
-    private final ApiService apiService;
-    private final ExecutorService executor;
-
-    public InstallationRepositoryImpl(ApiService apiService) {
-        this.apiService = apiService;
-        this.executor = Executors.newSingleThreadExecutor();
-    }
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     /**
      * Obtiene los detalles de la instalación desde la API remota.
      *
      * @param callback Callback para notificar el resultado de la operación
      */
-    @Override
-    public void getInstallationDetails(InstallationCallback callback) {
-        apiService.getInstallationDetails().enqueue(new Callback<InstallationDTO>() {
-            @Override
-            public void onResponse(Call<InstallationDTO> call, Response<InstallationDTO> response) {
-                executor.execute(() -> {
-                    if (response.isSuccessful() && response.body() != null) {
-                        Installation installation = InstallationMapper.toDomain(response.body());
-                        callback.onSuccess(installation);
+    override fun getInstallationDetails(callback: InstallationRepository.InstallationCallback) {
+        apiService.getInstallationDetails().enqueue(object : Callback<InstallationDTO> {
+            override fun onResponse(call: Call<InstallationDTO>, response: Response<InstallationDTO>) {
+                executor.execute {
+                    if (response.isSuccessful && response.body() != null) {
+                        val installation = InstallationMapper.toDomain(response.body()!!)
+                        callback.onSuccess(installation)
                     } else {
-                        callback.onError("Error del servidor: " + response.code());
+                        callback.onError("Error del servidor: ${response.code()}")
                     }
-                });
+                }
             }
 
-            @Override
-            public void onFailure(Call<InstallationDTO> call, Throwable t) {
-                executor.execute(() -> callback.onError("Error de conexión: " + t.getMessage()));
+            override fun onFailure(call: Call<InstallationDTO>, t: Throwable) {
+                executor.execute {
+                    callback.onError("Error de conexión: ${t.message}")
+                }
             }
-        });
+        })
     }
 }

@@ -1,7 +1,7 @@
-package com.nexosolar.android.data.local;
+package com.nexosolar.android.data.local
 
-import androidx.room.TypeConverter;
-import java.time.LocalDate;
+import androidx.room.TypeConverter
+import java.time.LocalDate
 
 /**
  * Convertidores de tipos personalizados para Room Database.
@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * lo cual es más eficiente que almacenar cadenas formateadas y permite
  * realizar comparaciones y ordenamientos directamente en SQL.
  */
-public class RoomConverters {
+object RoomConverters {
 
     /**
      * Convierte un timestamp (días desde época) a LocalDate.
@@ -22,8 +22,9 @@ public class RoomConverters {
      * @return LocalDate correspondiente, o null si value es null
      */
     @TypeConverter
-    public static LocalDate fromTimestamp(Long value) {
-        return value == null ? null : LocalDate.ofEpochDay(value);
+    @JvmStatic
+    fun fromTimestamp(value: Long?): LocalDate? {
+        return value?.let { LocalDate.ofEpochDay(it) }
     }
 
     /**
@@ -33,7 +34,8 @@ public class RoomConverters {
      * @return Número de días desde 1970-01-01, o null si date es null
      */
     @TypeConverter
-    public static Long dateToTimestamp(LocalDate date) {
-        return date == null ? null : date.toEpochDay();
+    @JvmStatic
+    fun dateToTimestamp(date: LocalDate?): Long? {
+        return date?.toEpochDay()
     }
 }

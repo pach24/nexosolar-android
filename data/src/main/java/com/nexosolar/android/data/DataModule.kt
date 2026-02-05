@@ -1,87 +1,133 @@
-package com.nexosolar.android.data;
+package com.nexosolar.android.data
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import com.nexosolar.android.data.local.AppDatabase;
-import com.nexosolar.android.data.local.InvoiceDao;
-import com.nexosolar.android.data.remote.ApiClientManager;
-import com.nexosolar.android.data.remote.ApiService;
-import com.nexosolar.android.data.repository.InstallationRepositoryImpl;
-import com.nexosolar.android.data.repository.InvoiceRepositoryImpl;
-import com.nexosolar.android.data.source.InvoiceRemoteDataSource;
-import com.nexosolar.android.data.source.InvoiceRemoteDataSourceImpl;
-import com.nexosolar.android.domain.repository.InstallationRepository;
-import com.nexosolar.android.domain.repository.InvoiceRepository;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
+import android.content.Context
+import android.content.SharedPreferences
+import com.nexosolar.android.data.local.AppDatabase
+import com.nexosolar.android.data.local.InvoiceDao
+import com.nexosolar.android.data.remote.ApiClientManager
+import com.nexosolar.android.data.remote.ApiService
+import com.nexosolar.android.data.repository.InstallationRepositoryImpl
+import com.nexosolar.android.data.repository.InvoiceRepositoryImpl
+import com.nexosolar.android.data.source.InvoiceRemoteDataSourceImpl
+import com.nexosolar.android.domain.repository.InstallationRepository
+import com.nexosolar.android.domain.repository.InvoiceRepository
+import java.util.concurrent.Executors
 
-public class DataModule {
+/**
+ * Módulo de inyección de dependencias manual para la capa de datos.
+ *
+ * Responsabilidades:
+ * - Proveer instancias configuradas de repositorios
+ * - Gestionar el cambio entre modo Mock (Retromock) y Real (Retrofit)
+ * - Limpiar caché local cuando cambia la configuración de API
+ * - Coordinar dependencias entre Room, Retrofit y repositorios
+ *
+ * Estrategia de caché:
+ * - Si cambia el modo Mock ↔ Real: limpia la base de datos
+ * - Si cambia la URL (en modo Real): limpia la base de datos
+ * - Persiste la configuración en SharedPreferences para detectar cambios
+ */
+class DataModule(
+    context: Context,
+    private val useMock: Boolean,
+    private val useAlternativeUrl: Boolean
+) {
 
-    private static final String PREFS_NAME = "RepoPrefs";
-    private static final String KEY_LAST_MODE_WAS_MOCK = "last_mode_was_mock";
-    private static final String KEY_LAST_URL_WAS_ALT = "last_url_was_alt"; // Nueva Key
+    private val context: Context = context.applicationContext
 
-    private final Context context;
-    private final boolean useMock;
-    private final boolean useAlternativeUrl; // Nuevo Flag
-
-    // Constructor actualizado
-    public DataModule(Context context, boolean useMock, boolean useAlternativeUrl) {
-        this.context = context.getApplicationContext();
-        this.useMock = useMock;
-        this.useAlternativeUrl = useAlternativeUrl;
+    companion object {
+        private const val PREFS_NAME = "RepoPrefs"
+        private const val KEY_LAST_MODE_WAS_MOCK = "last_mode_was_mock"
+        private const val KEY_LAST_URL_WAS_ALT = "last_url_was_alt"
     }
 
-    public InvoiceRepository provideInvoiceRepository() {
-        ApiService apiService = provideApiService();
-        InvoiceDao invoiceDao = provideInvoiceDao();
-        SharedPreferences prefs = provideSharedPrefs();
+    /**
+     * Proporciona una instancia configurada del repositorio de facturas.
+     *
+     * Detecta cambios de configuración (Mock/Real o URL) y limpia la base de datos
+     * si es necesario para evitar inconsistencias entre diferentes fuentes de datos.
+     *
+     * @return Repositorio de facturas configurado según el modo actual
+     */
+    fun provideInvoiceRepository(): InvoiceRepository {
+        val apiService = provideApiService()
+        val invoiceDao = provideInvoiceDao()
+        val prefs = provideSharedPrefs()
 
         // Detectar cualquier cambio de configuración (Mock o URL)
-        boolean lastModeWasMock = prefs.getBoolean(KEY_LAST_MODE_WAS_MOCK, false);
-        boolean lastUrlWasAlt = prefs.getBoolean(KEY_LAST_URL_WAS_ALT, false);
+        val lastModeWasMock = prefs.getBoolean(KEY_LAST_MODE_WAS_MOCK, false)
+        val lastUrlWasAlt = prefs.getBoolean(KEY_LAST_URL_WAS_ALT, false)
 
         // Si cambió el modo Mock O si cambió la URL (estando en modo real)
-        boolean configChanged = (this.useMock != lastModeWasMock) ||
-                (!this.useMock && this.useAlternativeUrl != lastUrlWasAlt);
+        val configChanged = (useMock != lastModeWasMock) ||
+                (!useMock && useAlternativeUrl != lastUrlWasAlt)
 
         if (configChanged) {
-            clearDatabaseOnModeSwitch(invoiceDao);
+            clearDatabaseOnModeSwitch(invoiceDao)
 
             // Guardar nueva configuración
             prefs.edit()
-                    .putBoolean(KEY_LAST_MODE_WAS_MOCK, this.useMock)
-                    .putBoolean(KEY_LAST_URL_WAS_ALT, this.useAlternativeUrl)
-                    .apply();
+                .putBoolean(KEY_LAST_MODE_WAS_MOCK, useMock)
+                .putBoolean(KEY_LAST_URL_WAS_ALT, useAlternativeUrl)
+                .apply()
         }
 
-        InvoiceRemoteDataSource remoteDataSource = new InvoiceRemoteDataSourceImpl(apiService);
-        return new InvoiceRepositoryImpl(remoteDataSource, invoiceDao, this.useMock);
+        val remoteDataSource = InvoiceRemoteDataSourceImpl(apiService)
+        return InvoiceRepositoryImpl(remoteDataSource, invoiceDao, useMock)
     }
 
-    public InstallationRepository provideInstallationRepository() {
-        return new InstallationRepositoryImpl(provideApiService());
+    /**
+     * Proporciona una instancia del repositorio de instalaciones.
+     *
+     * @return Repositorio de instalaciones configurado
+     */
+    fun provideInstallationRepository(): InstallationRepository {
+        return InstallationRepositoryImpl(provideApiService())
     }
 
-    private ApiService provideApiService() {
-        ApiClientManager.getInstance().init(context);
-        // Pasamos ambos flags
-        return ApiClientManager.getInstance().getApiService(useMock, useAlternativeUrl, context);
+    /**
+     * Proporciona el servicio de API configurado según el modo y URL actuales.
+     *
+     * @return Instancia de ApiService (Mock o Real según configuración)
+     */
+    private fun provideApiService(): ApiService {
+        ApiClientManager.getInstance().init(context)
+        return ApiClientManager.getInstance().getApiService(useMock, useAlternativeUrl, context)
     }
 
-    private InvoiceDao provideInvoiceDao() {
-        return AppDatabase.getInstance(context).invoiceDao();
+    /**
+     * Proporciona acceso al DAO de facturas desde Room.
+     *
+     * @return DAO de facturas para operaciones de base de datos
+     */
+    private fun provideInvoiceDao(): InvoiceDao {
+        return AppDatabase.getInstance(context).invoiceDao()
     }
 
-    private SharedPreferences provideSharedPrefs() {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+    /**
+     * Proporciona acceso a SharedPreferences para persistir configuración.
+     *
+     * @return Instancia de SharedPreferences
+     */
+    private fun provideSharedPrefs(): SharedPreferences {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    private void clearDatabaseOnModeSwitch(InvoiceDao invoiceDao) {
+    /**
+     * Limpia la base de datos local de forma síncrona cuando cambia la configuración.
+     *
+     * Usa un executor de un solo hilo para garantizar que la operación se complete
+     * antes de continuar con la nueva configuración.
+     *
+     * @param invoiceDao DAO para ejecutar la operación de limpieza
+     */
+    private fun clearDatabaseOnModeSwitch(invoiceDao: InvoiceDao) {
         try {
-            Executors.newSingleThreadExecutor().submit(invoiceDao::deleteAll).get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+            Executors.newSingleThreadExecutor().submit {
+                invoiceDao.deleteAll()
+            }.get()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

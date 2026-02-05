@@ -1,13 +1,10 @@
-package com.nexosolar.android.data;
+package com.nexosolar.android.data
 
-import com.nexosolar.android.data.local.InvoiceEntity;
-import com.nexosolar.android.data.remote.InvoiceDto;
-import com.nexosolar.android.domain.models.Invoice;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
+import com.nexosolar.android.data.local.InvoiceEntity
+import com.nexosolar.android.data.remote.InvoiceDto
+import com.nexosolar.android.domain.models.Invoice
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
  * Mapper bidireccional entre modelos de dominio y entidades de base de datos.
@@ -21,7 +18,7 @@ import java.util.List;
  * conocer tanto los modelos de dominio como las entidades de persistencia,
  * y es responsabilidad de data preparar los datos para el dominio.
  */
-public class InvoiceMapper {
+object InvoiceMapper {
 
     // ===== Mapeo de Entidad a Dominio =====
 
@@ -31,16 +28,15 @@ public class InvoiceMapper {
      * @param entity Entidad de Room, o null
      * @return Modelo de dominio, o null si entity es null
      */
-    public Invoice toDomain(InvoiceEntity entity) {
-        if (entity == null) return null;
+    fun toDomain(entity: InvoiceEntity?): Invoice? {
+        if (entity == null) return null
 
-        Invoice invoice = new Invoice();
-        invoice.setInvoiceStatus(entity.estado);
-        invoice.setInvoiceAmount(entity.importe);
-        invoice.setInvoiceDate(entity.fecha);
-        // invoice.setId(entity.id); // Descomentar si el dominio requiere ID
-
-        return invoice;
+        return Invoice().apply {
+            invoiceStatus = entity.estado
+            invoiceAmount = entity.importe
+            invoiceDate = entity.fecha
+            // invoiceID = entity.id // Descomentar si el dominio requiere ID
+        }
     }
 
     /**
@@ -49,56 +45,60 @@ public class InvoiceMapper {
      * @param entities Lista de entidades de Room
      * @return Lista de modelos de dominio (vacía si entities es null)
      */
-    public List<Invoice> toDomainList(List<InvoiceEntity> entities) {
-        List<Invoice> list = new ArrayList<>();
-        if (entities != null) {
-            for (InvoiceEntity entity : entities) {
-                list.add(toDomain(entity));
-            }
-        }
-        return list;
+    fun toDomainList(entities: List<InvoiceEntity>?): List<Invoice> {
+        return entities?.mapNotNull { toDomain(it) } ?: emptyList()
     }
 
     // ===== Mapeo de Dominio a Entidad =====
 
-    // InvoiceMapper.java
-    public InvoiceEntity toEntity(Invoice dto) {
-        InvoiceEntity entity = new InvoiceEntity();
-        entity.estado = dto.getInvoiceStatus();
-        entity.importe = dto.getInvoiceAmount();
-        // Aquí conviertes String date (DTO) -> LocalDate (Entity)
+    /**
+     * Convierte un modelo de dominio a entidad de base de datos.
+     *
+     * @param invoice Modelo de dominio Invoice
+     * @return Entidad de Room
+     */
+    fun toEntity(invoice: Invoice?): InvoiceEntity? {
+        if (invoice == null) return null
 
-        entity.fecha = dto.getInvoiceDate();
-
-        return entity;
+        return InvoiceEntity(
+            estado = invoice.invoiceStatus ?: "",
+            importe = invoice.invoiceAmount,
+            fecha = invoice.invoiceDate
+        )
     }
 
-    public List<InvoiceEntity> toEntityListFromDto(List<InvoiceDto> dtos) {
-        List<InvoiceEntity> list = new ArrayList<>();
-        if (dtos != null) {
-            for (InvoiceDto dto : dtos) {
-                list.add(toEntityFromDto(dto));
-            }
-        }
-        return list;
+    /**
+     * Convierte una lista de DTOs de red a entidades de base de datos.
+     *
+     * @param dtos Lista de InvoiceDto desde la API
+     * @return Lista de entidades Room
+     */
+    fun toEntityListFromDto(dtos: List<InvoiceDto>?): List<InvoiceEntity> {
+        return dtos?.mapNotNull { toEntityFromDto(it) } ?: emptyList()
     }
-    private InvoiceEntity toEntityFromDto(InvoiceDto dto) {
-        if (dto == null) return null;
 
-        InvoiceEntity entity = new InvoiceEntity();
-        entity.estado = dto.status;
-        entity.importe = dto.amount;
+    /**
+     * Convierte un DTO de red a entidad de base de datos.
+     * Parsea la fecha del formato "dd/MM/yyyy" a LocalDate.
+     *
+     * @param dto DTO desde la API
+     * @return Entidad de Room, o null si el DTO es null
+     */
+    private fun toEntityFromDto(dto: InvoiceDto?): InvoiceEntity? {
+        if (dto == null) return null
 
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            entity.fecha = LocalDate.parse(dto.date, formatter);
-        } catch (Exception e) {
+        val fecha = try {
+            val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+            LocalDate.parse(dto.date, formatter)
+        } catch (e: Exception) {
             // Manejo seguro en caso de error de parsing
-            entity.fecha = null; // o LocalDate.now(), según prefieras
+            null // o LocalDate.now(), según prefieras
         }
 
-        return entity;
+        return InvoiceEntity(
+            estado = dto.status ?: "",
+            importe = dto.amount,
+            fecha = fecha
+        )
     }
-
-
 }

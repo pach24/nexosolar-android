@@ -1,10 +1,10 @@
-package com.nexosolar.android.data.local;
+package com.nexosolar.android.data.local
 
-import android.content.Context;
-import androidx.room.Database;
-import androidx.room.Room;
-import androidx.room.RoomDatabase;
-import androidx.room.TypeConverters;
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 /**
  * Base de datos local de la aplicación utilizando Room.
@@ -15,53 +15,58 @@ import androidx.room.TypeConverters;
  *
  * Versión actual: 2 (con soporte para LocalDate mediante TypeConverters)
  */
-@Database(entities = {InvoiceEntity.class}, version = 2, exportSchema = false)
-@TypeConverters({RoomConverters.class})
-public abstract class AppDatabase extends RoomDatabase {
-
-    // ===== Constantes =====
-
-    private static final String DATABASE_NAME = "facturas_db";
-
-    // ===== Variables de instancia =====
-
-    private static volatile AppDatabase INSTANCE;
-
-    // ===== Métodos de acceso =====
+@Database(
+    entities = [InvoiceEntity::class],
+    version = 3,
+    exportSchema = false
+)
+@TypeConverters(RoomConverters::class)
+abstract class AppDatabase : RoomDatabase() {
 
     /**
      * Proporciona acceso al DAO de facturas.
      *
      * @return Instancia del DAO para operaciones CRUD sobre facturas
      */
-    public abstract InvoiceDao invoiceDao();
+    abstract fun invoiceDao(): InvoiceDao
 
-    // ===== Métodos públicos =====
+    companion object {
 
-    /**
-     * Obtiene la instancia única de la base de datos (Singleton thread-safe).
-     *
-     * Implementa Double-Checked Locking para optimizar el acceso concurrente.
-     * Usa fallbackToDestructiveMigration() ya que la app está en fase de desarrollo
-     * y no requiere migraciones complejas.
-     *
-     * @param context Contexto de la aplicación
-     * @return Instancia única de AppDatabase
-     */
-    public static AppDatabase getInstance(Context context) {
-        if (INSTANCE == null) {
-            synchronized (AppDatabase.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = Room.databaseBuilder(
-                                    context.getApplicationContext(),
-                                    AppDatabase.class,
-                                    DATABASE_NAME
-                            )
-                            .fallbackToDestructiveMigration()
-                            .build();
-                }
+        private const val DATABASE_NAME = "facturas_db"
+
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        /**
+         * Obtiene la instancia única de la base de datos (Singleton thread-safe).
+         *
+         * Implementa Double-Checked Locking para optimizar el acceso concurrente.
+         * Usa fallbackToDestructiveMigration() ya que la app está en fase de desarrollo
+         * y no requiere migraciones complejas.
+         *
+         * @param context Contexto de la aplicación
+         * @return Instancia única de AppDatabase
+         */
+        fun getInstance(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
             }
         }
-        return INSTANCE;
+
+        /**
+         * Construye la instancia de la base de datos con la configuración necesaria.
+         *
+         * @param context Contexto de la aplicación
+         * @return Nueva instancia de AppDatabase
+         */
+        private fun buildDatabase(context: Context): AppDatabase {
+            return Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                DATABASE_NAME
+            )
+                .fallbackToDestructiveMigration()
+                .build()
+        }
     }
 }
