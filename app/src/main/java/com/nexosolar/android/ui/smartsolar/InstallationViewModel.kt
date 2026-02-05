@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.domain.models.Installation
-import com.nexosolar.android.domain.repository.InstallationRepository
+import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 import com.nexosolar.android.ui.smartsolar.managers.InstallationDataManager
 import com.nexosolar.android.ui.smartsolar.managers.InstallationStateManager
 import kotlinx.coroutines.delay
@@ -20,11 +20,13 @@ import kotlinx.coroutines.launch
  * - Exponer LiveData para observación desde la UI
  * - Gestionar estados de carga y errores con corrutinas
  */
-class InstallationViewModel(repository: InstallationRepository) : ViewModel() {
+class InstallationViewModel(
+    getInstallationDetailsUseCase: GetInstallationDetailsUseCase
+) : ViewModel() {
 
     // ===== Managers =====
 
-    private val dataManager = InstallationDataManager(repository)
+    private val dataManager = InstallationDataManager(getInstallationDetailsUseCase)
     private val stateManager = InstallationStateManager()
 
     private var isFirstLoad = true
@@ -48,12 +50,12 @@ class InstallationViewModel(repository: InstallationRepository) : ViewModel() {
         // Lanzamos una corrutina en el scope del ViewModel
         viewModelScope.launch {
             try {
-                val result = dataManager.loadInstallationDetails()
+                dataManager.loadInstallationDetails()
                 isFirstLoad = false
                 stateManager.showData()
 
             } catch (e: Exception) {
-                // Cualquier error que caiga en onError del Repository caerá aquí automáticamente
+                // Cualquier error que lance el use case caerá aquí automáticamente
                 isFirstLoad = false
                 handleLoadError(e)
             }

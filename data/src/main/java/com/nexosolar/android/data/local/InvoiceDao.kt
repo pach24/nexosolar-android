@@ -1,10 +1,9 @@
-package com.nexosolar.android.data.local;
+package com.nexosolar.android.data.local
 
-import androidx.room.Dao;
-import androidx.room.Insert;
-import androidx.room.OnConflictStrategy;
-import androidx.room.Query;
-import java.util.List;
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 
 /**
  * Data Access Object para operaciones de persistencia local de facturas.
@@ -14,7 +13,7 @@ import java.util.List;
  * del hilo principal (UI thread).
  */
 @Dao
-public interface InvoiceDao {
+interface InvoiceDao {
 
     /**
      * Obtiene todas las facturas almacenadas localmente.
@@ -22,7 +21,7 @@ public interface InvoiceDao {
      * @return Lista de entidades de facturas, o lista vacía si no hay datos
      */
     @Query("SELECT * FROM facturas")
-    List<InvoiceEntity> getAllList();
+    suspend fun getAllList(): List<InvoiceEntity>
 
     /**
      * Inserta o actualiza un lote de facturas en la base de datos.
@@ -33,7 +32,7 @@ public interface InvoiceDao {
      * @param facturas Lista de entidades a insertar o actualizar
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertAll(List<InvoiceEntity> facturas);
+    suspend fun insertAll(facturas: List<InvoiceEntity>)
 
     /**
      * Elimina todas las facturas de la base de datos.
@@ -42,5 +41,5 @@ public interface InvoiceDao {
      * sincronización completa sin datos obsoletos.
      */
     @Query("DELETE FROM facturas")
-    void deleteAll();
+    suspend fun deleteAll()
 }
