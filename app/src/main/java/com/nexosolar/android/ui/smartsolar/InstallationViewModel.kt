@@ -1,72 +1,95 @@
-package com.nexosolar.android.ui.smartsolar;
+package com.nexosolar.android.ui.smartsolar
 
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModel;
-import com.nexosolar.android.domain.models.Installation;
-import com.nexosolar.android.domain.repository.InstallationRepository;
-import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase;
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.domain.models.Installation
+import com.nexosolar.android.domain.repository.InstallationRepository
+import com.nexosolar.android.ui.smartsolar.managers.InstallationDataManager
+import com.nexosolar.android.ui.smartsolar.managers.InstallationStateManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel que gestiona el estado y la lógica de negocio relacionada
  * con los datos de instalación solar.
  *
  * Responsabilidades:
- * - Ejecutar casos de uso de dominio
+ * - Coordinar managers especializados (DataManager, StateManager)
  * - Exponer LiveData para observación desde la UI
- * - Gestionar estados de carga y errores
+ * - Gestionar estados de carga y errores con corrutinas
  */
-public class InstallationViewModel extends ViewModel {
+class InstallationViewModel(repository: InstallationRepository) : ViewModel() {
 
-    // ===== Variables de instancia =====
+    // ===== Managers =====
 
-    private final GetInstallationDetailsUseCase getInstallationDetailsUseCase;
+    private val dataManager = InstallationDataManager(repository)
+    private val stateManager = InstallationStateManager()
 
-    private final MutableLiveData<Installation> _installation = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>();
-    private final MutableLiveData<String> _error = new MutableLiveData<>();
+    private var isFirstLoad = true
 
-    // ===== Constructores =====
+    // ===== LiveData expuestos =====
 
-    public InstallationViewModel(GetInstallationDetailsUseCase useCase) {
-        this.getInstallationDetailsUseCase = useCase;
-    }
-
-    // ===== Getters (LiveData expuestos) =====
-
-    public LiveData<Installation> getInstallation() {
-        return _installation;
-    }
-
-    public LiveData<Boolean> isLoading() {
-        return _isLoading;
-    }
-
-    public LiveData<String> getError() {
-        return _error;
-    }
+    val installation: LiveData<Installation?> = dataManager.installation
+    val viewState: LiveData<InstallationStateManager.ViewState> = stateManager.currentState
+    val errorMessage: LiveData<String?> = stateManager.errorMessage
+    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
 
     // ===== Métodos públicos =====
 
     /**
-     * Solicita los detalles de la instalación mediante el caso de uso correspondiente.
+     * Solicita los detalles de la instalación mediante el DataManager.
      * Actualiza los LiveData según el resultado (éxito/error).
      */
-    public void loadInstallationDetails() {
-        _isLoading.setValue(true);
+    fun loadInstallationDetails() {
+        stateManager.showLoading()
 
-        getInstallationDetailsUseCase.execute(new InstallationRepository.InstallationCallback() {
-            @Override
-            public void onSuccess(Installation installation) {
-                _isLoading.postValue(false);
-                _installation.postValue(installation);
-            }
+        // Lanzamos una corrutina en el scope del ViewModel
+        viewModelScope.launch {
+            try {
+                val result = dataManager.loadInstallationDetails()
+                isFirstLoad = false
+                stateManager.showData()
 
-            @Override
-            public void onError(String errorMessage) {
-                _isLoading.postValue(false);
-                _error.postValue(errorMessage);
+            } catch (e: Exception) {
+                // Cualquier error que caiga en onError del Repository caerá aquí automáticamente
+                isFirstLoad = false
+                handleLoadError(e)
             }
-        });
+        }
+    }
+
+    /**
+     * Verifica si hay datos cargados en memoria.
+     */
+    fun hasCachedData(): Boolean = dataManager.hasCachedData()
+
+    /**
+     * Verifica si el estado actual es de error.
+     */
+    fun isErrorState(): Boolean = stateManager.isError()
+
+    // ===== Métodos privados =====
+
+    private fun handleLoadError(error: Throwable) {
+        val errorType = ErrorClassifier.classify(error)
+
+        if (dataManager.hasCachedData()) {
+            stateManager.showData()
+            return
+        }
+
+        val message = ErrorClassifier.getErrorMessage(errorType, error)
+        when (errorType) {
+            ErrorClassifier.ErrorType.SERVER -> stateManager.showServerError(message)
+            ErrorClassifier.ErrorType.NETWORK -> {
+                viewModelScope.launch {
+                    delay(3000)
+                    stateManager.showNetworkError(message)
+                }
+            }
+            else -> stateManager.showServerError("Error inesperado: $message")
+        }
     }
 }

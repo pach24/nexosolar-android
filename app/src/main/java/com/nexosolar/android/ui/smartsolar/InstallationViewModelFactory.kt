@@ -1,43 +1,27 @@
-package com.nexosolar.android.ui.smartsolar;
+package com.nexosolar.android.ui.smartsolar
 
-import android.content.Context;
-import androidx.annotation.NonNull;
-import androidx.lifecycle.ViewModel;
-import androidx.lifecycle.ViewModelProvider;
-import com.nexosolar.android.data.DataModule;
-import com.nexosolar.android.domain.repository.InstallationRepository;
-import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase;
+import androidx.annotation.NonNull
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.nexosolar.android.domain.repository.InstallationRepository
 
 /**
  * Factory para la creación de InstallationViewModel con inyección manual de dependencias.
  *
  * Responsabilidades:
- * - Construir la cadena de dependencias (Repository -> UseCase -> ViewModel)
- * - Permitir alternar entre datos reales y mock mediante flag useMock
- *
- *
+ * - Construir la cadena de dependencias (Repository -> ViewModel)
+ * - Respetar la configuración global del DataModule (Mock/Real)
  */
-public class InstallationViewModelFactory implements ViewModelProvider.Factory {
-
-    // ===== Variables de instancia =====
-
-    private final InstallationRepository repository;
-
-    // Ahora recibimos directamente el repositorio, igual que en Invoices
-    public InstallationViewModelFactory(InstallationRepository repository) {
-        this.repository = repository;
-    }
+class InstallationViewModelFactory(
+    private val repository: InstallationRepository
+) : ViewModelProvider.Factory {
 
     @NonNull
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
-        if (modelClass.isAssignableFrom(InstallationViewModel.class)) {
-            // Ya no creamos DataModule aquí. Usamos el repositorio inyectado.
-            GetInstallationDetailsUseCase useCase = new GetInstallationDetailsUseCase(repository);
-            return (T) new InstallationViewModel(useCase);
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(InstallationViewModel::class.java)) {
+            return InstallationViewModel(repository) as T
         }
-        throw new IllegalArgumentException("Unknown ViewModel class: " + modelClass.getName());
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
-
