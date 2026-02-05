@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nexosolar.android.core.DateUtils
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
@@ -131,4 +132,34 @@ class InvoiceViewModel(
             else -> stateManager.showServerError("Error inesperado: $message")
         }
     }
+
+
+
+    fun aplicarFiltrosSeleccionados(estados: List<String>, min: Double, max: Double) {
+        // Obtenemos la base del filtro actual (usando el copy() que añadimos en Java)
+        val nuevosFiltros = filtrosActuales.value?.copy() ?: InvoiceFilters()
+
+        // Seteamos los valores nuevos
+        nuevosFiltros.filteredStates = estados
+        nuevosFiltros.minAmount = min
+        nuevosFiltros.maxAmount = max
+
+        // Delegamos al manager: él sabrá si tiene que ordenar fechas o validar algo más
+        filterManager.updateFilters(nuevosFiltros)
+
+        // Ejecutamos el filtrado real sobre los datos
+        actualizarFiltros(nuevosFiltros)
+    }
+
+    fun getOldestDateMillis(): Long {
+        val date = this.getOldestDate()
+        return DateUtils.toEpochMilli(date)
+    }
+
+    fun getNewestDateMillis(): Long {
+        val date = this.getNewestDate()
+        return DateUtils.toEpochMilli(date)
+    }
+
+    fun esEstadoError() = stateManager.isError()
 }
