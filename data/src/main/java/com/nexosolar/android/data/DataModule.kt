@@ -92,8 +92,9 @@ class DataModule(
      * @return Instancia de ApiService (Mock o Real según configuración)
      */
     private fun provideApiService(): ApiService {
-        ApiClientManager.getInstance().init(context)
-        return ApiClientManager.getInstance().getApiService(useMock, useAlternativeUrl, context)
+        // ✅ CAMBIO: ApiClientManager ahora es object, no necesita .getInstance()
+        ApiClientManager.init(context)
+        return ApiClientManager.getApiService(useMock, useAlternativeUrl)  // ⚡ Sin context
     }
 
     /**
@@ -124,7 +125,7 @@ class DataModule(
      */
     private fun clearDatabaseOnModeSwitch(invoiceDao: InvoiceDao) {
         try {
-            runBlocking(Dispatchers.IO) { // ✅ runBlocking para ejecutar suspend de forma síncrona
+            runBlocking(Dispatchers.IO) {
                 invoiceDao.deleteAll()
             }
         } catch (e: Exception) {

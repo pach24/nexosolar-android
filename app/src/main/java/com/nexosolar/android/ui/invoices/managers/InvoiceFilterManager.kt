@@ -5,7 +5,6 @@ import androidx.lifecycle.MutableLiveData
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
-import java.time.LocalDate
 
 /**
  * Gestor especializado en la lógica de filtrado de facturas.
@@ -18,34 +17,41 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
     private val _validationError = MutableLiveData<String?>()
     val validationError: LiveData<String?> get() = _validationError
 
-
-
     fun updateFilters(newFilters: InvoiceFilters) {
         // 1. Lógica de Negocio: Corregir el orden de las fechas si el usuario se equivocó
+        // Como 'newFilters' es inmutable, debemos crear una copia corregida si es necesario.
         val start = newFilters.startDate
         val end = newFilters.endDate
 
-        if (start != null && end != null && start.isAfter(end)) {
-            newFilters.startDate = end
-            newFilters.endDate = start
+        val filtersToSave = if (start != null && end != null && start.isAfter(end)) {
+            // Creamos una COPIA corregida intercambiando fechas
+            newFilters.copy(
+                startDate = end,
+                endDate = start
+            )
+        } else {
+            // Si está bien, usamos el objeto tal cual
+            newFilters
         }
 
         // 2. Guardar el estado limpio
-        _currentFilters.postValue(newFilters)
+        _currentFilters.postValue(filtersToSave)
     }
 
     fun resetFilters(invoices: List<Invoice>) {
         // 1. Calculamos el máximo real de las facturas para el slider
-        val maxReal = invoices.maxOfOrNull { it.invoiceAmount }?.toDouble() ?: 0.0
+        // Usamos Float porque Invoice.invoiceAmount es Float
+        val maxReal = invoices.maxOfOrNull { it.invoiceAmount } ?: 0f
 
         // 2. Creamos los filtros con el rango completo y fechas nulas
-        val cleanFilters = InvoiceFilters().apply {
-            minAmount = 0.0
-            maxAmount = maxReal  // IMPORTANTE: Para que el slider empiece al final
-            startDate = null     // Para que aparezca "día mes año"
-            endDate = null       // Para que aparezca "día mes año"
-            filteredStates = mutableListOf()
-        }
+        // Usamos el constructor de la data class directamente
+        val cleanFilters = InvoiceFilters(
+            minAmount = 0f,
+            maxAmount = maxReal,      // IMPORTANTE: Para que el slider empiece al final
+            startDate = null,         // Para que aparezca "día mes año"
+            endDate = null,           // Para que aparezca "día mes año"
+            filteredStates = emptySet() // Set vacío inmutable
+        )
 
         _currentFilters.postValue(cleanFilters)
     }
@@ -54,7 +60,7 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
         val filters = _currentFilters.value ?: return false
         return filters.startDate != null ||
                 filters.endDate != null ||
-                !filters.filteredStates.isNullOrEmpty()
+                filters.filteredStates.isNotEmpty()
     }
 
     /**
@@ -71,18 +77,20 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
     private fun cumpleFiltro(invoice: Invoice, filters: InvoiceFilters): Boolean {
         // 1. Filtro de Estado
         val estadosPermitidos = filters.filteredStates
-        if (!estadosPermitidos.isNullOrEmpty()) {
-            val estadoFactura = invoice.estadoEnum?.serverValue
+        if (estadosPermitidos.isNotEmpty()) {
+            val estadoFactura = invoice.estadoEnum.serverValue // Acceso directo a propiedad val
             if (estadoFactura !in estadosPermitidos) return false
         }
 
-        // 2. Filtro de Importe
+        // 2. Filtro de Importe (Todo en Float ahora)
         val importe = invoice.invoiceAmount
-        val min = filters.minAmount ?: 0.0
-        val max = filters.maxAmount ?: Double.MAX_VALUE
-        if (importe < min || importe > max) return false
+        val min = filters.minAmount ?: 0f
+        val max = filters.maxAmount ?: Float.MAX_VALUE
 
-        // 3. Filtro de Fechas
+        // Comparación segura de floats
+        if (importe !in min..max) return false
+
+        // 3. Filtro de Fechas (Sin cambios, LocalDate es inmutable per se)
         val fechaFactura = invoice.invoiceDate
         if (fechaFactura != null) {
             val start = filters.startDate
@@ -93,7 +101,4 @@ class InvoiceFilterManager(private val filterInvoicesUseCase: FilterInvoicesUseC
 
         return true
     }
-
-
-
 }
