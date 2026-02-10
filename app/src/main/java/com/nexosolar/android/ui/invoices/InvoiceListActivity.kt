@@ -35,13 +35,26 @@ class InvoiceListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityInvoiceListBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         setSupportActionBar(binding.toolbar)
 
         setupRecyclerView()
         setupObservers()
         setupListeners()
         setupBackPressHandler()
+
+        // --- NUEVO: ESCUCHA AUTOMÁTICA DE CAMBIOS ---
+        supportFragmentManager.addOnBackStackChangedListener {
+            // Verificamos si el fragmento sigue existiendo y siendo visible
+            val fragment = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")
+            val isFiltering = fragment != null && fragment.isVisible
+
+            // 1. Controlamos visibilidad de contenedores
+            binding.toolbar.isVisible = !isFiltering
+            binding.fragmentContainer.isVisible = isFiltering
+
+            // 2. Actualizamos la lista (para que reaparezca si cerramos el filtro)
+            actualizarEstadoUI()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -187,9 +200,8 @@ class InvoiceListActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val filterFragment = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")
-
                 if (filterFragment != null && filterFragment.isVisible) {
-                    restoreMainView()
+                    // restoreMainView()  <-- BORRAR ESTA LÍNEA
                     supportFragmentManager.popBackStack()
                 } else {
                     isEnabled = false

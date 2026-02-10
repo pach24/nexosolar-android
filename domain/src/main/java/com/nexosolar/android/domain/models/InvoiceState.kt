@@ -1,47 +1,29 @@
-package com.nexosolar.android.domain.models;
+package com.nexosolar.android.domain.models
 
 /**
- * Enum que define los posibles estados de una factura en el sistema.
- * Actúa como adaptador entre los textos del servidor y la lógica de negocio/UI.
+ * Enum que define los posibles estados de una factura.
+ * Actúa como adaptador entre los textos del servidor y la lógica de negocio.
  */
-public enum InvoiceState {
+enum class InvoiceState(val serverValue: String) {
 
     PENDING("Pendiente de pago"),
     PAID("Pagada"),
     CANCELLED("Anulada"),
     FIXED_FEE("Cuota fija"),
     PAYMENT_PLAN("Plan de pago"),
-    UNKNONWN("");
+    UNKNOWN(""); // Mantenemos UNKNOWN para robustez (typo original: UNKNONWN)
 
-    // ===== Variables de instancia =====
-    private final String serverValue;
+    companion object {
+        /**
+         * Mapea un string arbitrario del servidor al enum correspondiente.
+         * Case-insensitive para mayor robustez ante cambios en la API.
+         */
+        fun fromServerValue(value: String?): InvoiceState {
+            if (value.isNullOrBlank()) return UNKNOWN
 
-    // ===== Constructores =====
-
-    InvoiceState(String serverValue) {
-        this.serverValue = serverValue;
-    }
-
-    // ===== Getters y Setters =====
-
-    public String getServerValue() {
-        return serverValue;
-    }
-
-    // ===== Métodos públicos =====
-
-    /**
-     * Mapea un string arbitrario del servidor al enum correspondiente.
-     * Case-insensitive para mayor robustez ante cambios menores en API.
-     */
-    public static InvoiceState fromServerValue(String value) {
-        if (value == null) return UNKNONWN;
-
-        for (InvoiceState state : values()) {
-            if (state.serverValue.equalsIgnoreCase(value)) {
-                return state;
-            }
+            return entries.firstOrNull {
+                it.serverValue.equals(value, ignoreCase = true)
+            } ?: UNKNOWN
         }
-        return UNKNONWN;
     }
 }

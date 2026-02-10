@@ -136,18 +136,22 @@ class InvoiceViewModel(
 
 
     fun aplicarFiltrosSeleccionados(estados: List<String>, min: Double, max: Double) {
-        // Obtenemos la base del filtro actual (usando el copy() que añadimos en Java)
-        val nuevosFiltros = filtrosActuales.value?.copy() ?: InvoiceFilters()
 
-        // Seteamos los valores nuevos
-        nuevosFiltros.filteredStates = estados
-        nuevosFiltros.minAmount = min
-        nuevosFiltros.maxAmount = max
+        // Obtenemos el filtro actual o creamos uno nuevo
+        val filtroActual = filtrosActuales.value ?: InvoiceFilters()
 
-        // Delegamos al manager: él sabrá si tiene que ordenar fechas o validar algo más
+        // CAMBIO 3: Usamos copy() para crear una nueva instancia inmutable
+        // en lugar de reasignar propiedades con setters (nuevosFiltros.minAmount = ...)
+        val nuevosFiltros = filtroActual.copy(
+            filteredStates = estados.toSet(), // Convertimos List -> Set
+            minAmount = min.toFloat(),        // Convertimos Double -> Float
+            maxAmount = max.toFloat()         // Convertimos Double -> Float
+        )
+
+        // Delegamos al manager
         filterManager.updateFilters(nuevosFiltros)
 
-        // Ejecutamos el filtrado real sobre los datos
+        // Ejecutamos el filtrado
         actualizarFiltros(nuevosFiltros)
     }
 
