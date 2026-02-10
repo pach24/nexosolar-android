@@ -25,7 +25,7 @@ object DateUtils {
      * @return Fecha formateada o cadena vacía si [date] es null
      */
     fun formatDateShort(date: LocalDate?): String =
-        date?.format(SHORT_FORMATTER).orEmpty()
+        date?.format(SHORT_FORMATTER) ?: ""
 
     /**
      * Formatea una fecha en formato legible: `"20 Ene 2025"`
@@ -39,7 +39,7 @@ object DateUtils {
         date?.format(READABLE_FORMATTER)
             ?.capitalizeMonth()
             ?.replace(".", "")
-            .orEmpty()
+            ?:""
 
     /**
      * Convierte un [LocalDate] a milisegundos en UTC.
