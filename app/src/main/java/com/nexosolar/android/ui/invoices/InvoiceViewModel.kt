@@ -1,6 +1,6 @@
 package com.nexosolar.android.ui.invoices
 
-import android.util.Log
+import com.nexosolar.android.core.toUserMessage
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -112,24 +112,28 @@ class InvoiceViewModel(
     fun hayFiltrosActivos(): Boolean = filterManager.hasActiveFilters()
 
     private fun handleLoadError(error: Throwable) {
-        val errorType = ErrorClassifier.classify(error)
-
+        // Si hay caché, mostramos los datos y salimos
         if (dataManager.hasCachedData()) {
             stateManager.showData()
             return
         }
 
-        val message = ErrorClassifier.getErrorMessage(errorType, error)
-        when (errorType) {
-            ErrorClassifier.ErrorType.SERVER -> stateManager.showServerError(message)
-            ErrorClassifier.ErrorType.NETWORK -> {
-
+        // Clasificamos el error (ahora devuelve una sealed class)
+        when (val errorType = ErrorClassifier.classify(error)) {
+            is ErrorClassifier.ErrorType.Network -> {
                 viewModelScope.launch {
-                    delay(3000)
-                    stateManager.showNetworkError(message)
+                    delay(3000) // Delay antes de mostrar el error de red
+                    stateManager.showNetworkError(errorType.toUserMessage())
                 }
             }
-            else -> stateManager.showServerError("Error inesperado: $message")
+
+            is ErrorClassifier.ErrorType.Server -> {
+                stateManager.showServerError(errorType.toUserMessage())
+            }
+
+            is ErrorClassifier.ErrorType.Unknown -> {
+                stateManager.showServerError(errorType.toUserMessage())
+            }
         }
     }
 

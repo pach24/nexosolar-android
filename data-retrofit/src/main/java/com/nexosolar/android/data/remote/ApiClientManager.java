@@ -3,7 +3,7 @@ package com.nexosolar.android.data.remote;
 import android.content.Context;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.nexosolar.android.core.LocalDateTypeAdapter;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
@@ -11,7 +11,6 @@ import co.infinum.retromock.BodyFactory;
 import co.infinum.retromock.Retromock;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-import com.nexosolar.android.data.remote.BuildConfig;
 
 public class ApiClientManager {
 

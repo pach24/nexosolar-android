@@ -1,6 +1,6 @@
 plugins {
     id("java-library")
-    alias(libs.plugins.kotlin.jvm)
+    id("org.jetbrains.kotlin.jvm")
 }
 
 java {
@@ -8,7 +8,15 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
+
+kotlin {
+    jvmToolchain(11)
+}
+
 dependencies {
-    implementation("com.google.code.gson:gson:2.10.1")
+
     implementation(libs.annotations)
+
+
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
 }
