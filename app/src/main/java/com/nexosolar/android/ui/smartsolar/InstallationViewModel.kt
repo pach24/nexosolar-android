@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.core.toUserMessage
 import com.nexosolar.android.domain.models.Installation
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 import com.nexosolar.android.ui.smartsolar.managers.InstallationDataManager
@@ -75,23 +76,38 @@ class InstallationViewModel(
     // ===== Métodos privados =====
 
     private fun handleLoadError(error: Throwable) {
-        val errorType = ErrorClassifier.classify(error)
-
+        // 1️⃣ Early return si hay caché (igual que antes)
         if (dataManager.hasCachedData()) {
             stateManager.showData()
             return
         }
 
-        val message = ErrorClassifier.getErrorMessage(errorType, error)
-        when (errorType) {
-            ErrorClassifier.ErrorType.SERVER -> stateManager.showServerError(message)
-            ErrorClassifier.ErrorType.NETWORK -> {
+        // 2️⃣ Clasificas el error dentro del when (smart casting)
+        //    ✅ El compilador sabe el tipo exacto en cada rama
+        when (val errorType = ErrorClassifier.classify(error)) {
+
+            // 3️⃣ Caso Network: errorType es automáticamente ErrorType.Network
+            //    ✅ Puedes acceder a errorType.details si lo necesitas
+            is ErrorClassifier.ErrorType.Network -> {
                 viewModelScope.launch {
                     delay(3000)
-                    stateManager.showNetworkError(message)
+                    // ✅ Llamada fluida: errorType.toUserMessage()
+                    stateManager.showNetworkError(errorType.toUserMessage())
                 }
             }
-            else -> stateManager.showServerError("Error inesperado: $message")
+
+            // 4️⃣ Caso Server: errorType es automáticamente ErrorType.Server
+            is ErrorClassifier.ErrorType.Server -> {
+                stateManager.showServerError(errorType.toUserMessage())
+            }
+
+            // 5️⃣ Caso Unknown: errorType es automáticamente ErrorType.Unknown
+            is ErrorClassifier.ErrorType.Unknown -> {
+                stateManager.showServerError(errorType.toUserMessage())
+            }
+
+            // ⚠️ NO necesitas `else` - el compilador verifica exhaustividad
         }
     }
+
 }
