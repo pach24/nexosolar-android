@@ -1,15 +1,19 @@
-// InvoiceDto.java
-package com.nexosolar.android.data.remote;
+package com.nexosolar.android.data.remote
 
-import com.google.gson.annotations.SerializedName;
+import com.google.gson.annotations.SerializedName
 
-public class InvoiceDto {
+/**
+ * DTO para representar una factura desde la API.
+ *
+ * Mapea los campos de la respuesta JSON a propiedades Kotlin inmutables.
+ */
+data class InvoiceDto(
     @SerializedName("descEstado")
-    public String status;
+    val status: String,  // ⚡ val, no var
 
     @SerializedName("importeOrdenacion")
-    public float amount;
+    val amount: Float,
 
     @SerializedName("fecha")
-    public String date;
-}
+    val date: String  // ⚡ No nullable si la API siempre lo envía
+)

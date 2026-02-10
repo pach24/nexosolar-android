@@ -1,21 +1,25 @@
-package com.nexosolar.android.data.remote;
+package com.nexosolar.android.data.remote
 
-import com.google.gson.annotations.SerializedName;
+import com.google.gson.annotations.SerializedName
 
-public class InstallationDTO {
-
+/**
+ * DTO para representar los detalles de una instalación solar.
+ *
+ * Mapea los campos de configuración de autoconsumo desde la API.
+ */
+data class InstallationDTO(
     @SerializedName("cau")
-    public String cau;
+    val cau: String = "",  //  CAU (Código de Autoconsumo Único)
 
     @SerializedName("estadoAutoconsumo")
-    public String status;
+    val status: String = "",  //  Estado del autoconsumo
 
     @SerializedName("tipoAutoconsumo")
-    public String type;
+    val type: String = "",  //  Tipo de autoconsumo
 
     @SerializedName("compExcedentes")
-    public String compensation;
+    val compensation: String = "",  //  Compensación de excedentes
 
     @SerializedName("potenciaInstalacion")
-    public String power;
-}
+    val power: String = ""  //  Potencia instalada
+)

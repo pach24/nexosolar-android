@@ -21,43 +21,10 @@ class InstallationRepositoryImpl(
     private val apiService: ApiService
 ) : InstallationRepository {
 
-    override suspend fun getInstallationDetails(): Installation = withContext(Dispatchers.IO) {
-        suspendCancellableCoroutine { continuation ->
-            val call = apiService.getInstallationDetails()
-
-            call.enqueue(object : retrofit2.Callback<com.nexosolar.android.data.remote.InstallationDTO> {
-                override fun onResponse(
-                    call: retrofit2.Call<com.nexosolar.android.data.remote.InstallationDTO>,
-                    response: retrofit2.Response<com.nexosolar.android.data.remote.InstallationDTO>
-                ) {
-                    if (response.isSuccessful && response.body() != null) {
-                        val installation = InstallationMapper.toDomain(response.body()!!)
-                        if (installation != null) {
-                            continuation.resume(installation)
-                        } else {
-                            continuation.resumeWithException(
-                                Exception("Error al mapear instalación")
-                            )
-                        }
-                    } else {
-                        continuation.resumeWithException(
-                            Exception("Error del servidor: ${response.code()}")
-                        )
-                    }
-                }
-
-                override fun onFailure(
-                    call: retrofit2.Call<com.nexosolar.android.data.remote.InstallationDTO>,
-                    t: Throwable
-                ) {
-                    continuation.resumeWithException(t)
-                }
-            })
-
-            // Cancela la llamada si la coroutine se cancela
-            continuation.invokeOnCancellation {
-                call.cancel()
-            }
+    override suspend fun getInstallationDetails(): Installation {
+        return withContext(Dispatchers.IO) {
+            val dto = apiService.getInstallationDetails()
+            InstallationMapper.toDomain(dto) ?: throw Exception("Error al mapear instalación")
         }
     }
 }

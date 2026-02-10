@@ -1,30 +1,32 @@
-package com.nexosolar.android.data.remote;
+package com.nexosolar.android.data.remote
 
-import com.nexosolar.android.domain.models.Installation;
-
-import co.infinum.retromock.meta.Mock;
-import co.infinum.retromock.meta.MockCircular;
-import co.infinum.retromock.meta.MockResponse;
-import retrofit2.Call;
-import retrofit2.http.GET;
+import co.infinum.retromock.meta.Mock
+import co.infinum.retromock.meta.MockCircular
+import co.infinum.retromock.meta.MockResponse
+import retrofit2.http.GET
 
 /**
- * Interfaz de definición de servicios API con soporte para Retrofit y Retromock.
- * Define los endpoints y sus respuestas simuladas.
+ * Definición de servicios API con soporte para Retrofit y Retromock.
+ *
+ * Define endpoints y sus respuestas simuladas para testing sin backend.
+ * Usa suspend functions para integración nativa con Coroutines.
  */
-public interface ApiService {
+interface ApiService {
 
     /**
-     * Obtiene la lista de facturas.
+     * Obtiene la lista de facturas (suspendable).
      *
-     * En modo Mock, utiliza @MockCircular para rotar entre diferentes respuestas JSON:
-     * 1. facturas_todas_impagadas.json (Todas pendientes)
-     * 2. facturas_algunas_pagadas.json (Mezcla pagadas/pendientes)
-     * 3. facturas_todas_pagadas.json (Todas pagadas)
+     * En modo Mock, utiliza [MockCircular] para rotar entre diferentes respuestas JSON:
+     * 1. `facturas_500.json` (Error de servidor)
+     * 2. `facturas_todas_impagadas.json` (Todas pendientes)
+     * 3. `facturas_algunas_pagadas.json` (Mezcla pagadas/pendientes)
+     * 4. `facturas_todas_pagadas.json` (Todas pagadas)
      *
-     * En modo Real, llama al endpoint "facturas".
+     * En modo Real, llama al endpoint `invoices.json`.
      *
-     * @return Call con la respuesta de facturas
+     * @return Respuesta con la lista de facturas
+     * @throws retrofit2.HttpException Si el servidor devuelve error (4xx/5xx)
+     * @throws java.io.IOException Si hay error de red
      */
     @Mock
     @MockCircular
@@ -33,19 +35,20 @@ public interface ApiService {
     @MockResponse(body = "facturas_algunas_pagadas.json")
     @MockResponse(body = "facturas_todas_pagadas.json")
     @GET("invoices.json")
-    Call<InvoiceResponse> getFacturas();
-
-
-
+    suspend fun getFacturas(): InvoiceResponse
 
     /**
      * Obtiene los detalles de la instalación solar (Smart Solar).
      *
-     * En modo Mock, devuelve el contenido de "installation_details.json".
-     * En modo Real, llamaría a "installation/details".
+     * En modo Mock, devuelve el contenido de `installation_details.json`.
+     * En modo Real, llamaría al endpoint `installation_details.json`.
+     *
+     * @return Detalles de la instalación
+     * @throws retrofit2.HttpException Si el servidor devuelve error (4xx/5xx)
+     * @throws java.io.IOException Si hay error de red
      */
     @Mock
     @MockResponse(body = "installation_details.json")
     @GET("installation_details.json")
-    Call<InstallationDTO> getInstallationDetails();
+    suspend fun getInstallationDetails(): InstallationDTO
 }

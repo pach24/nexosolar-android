@@ -1,22 +1,22 @@
-package com.nexosolar.android.data.remote;
+package com.nexosolar.android.data.remote
 
-import java.util.List;
+import com.google.gson.annotations.SerializedName
 
-// Representa la respuesta de la API, en nuestro caso un objeto con el número de facturas y una lista de objetos factura
+/**
+ * Respuesta de la API que contiene el listado de facturas.
+ *
+ * Mapea la estructura JSON:
+ * ```json
+ * {
+ *   "numFacturas": 10,
+ *   "facturas": [...]
+ * }
+ * ```
+ */
+data class InvoiceResponse(
+    @SerializedName("numFacturas")
+    val numFacturas: Int = 0,  // Valor por defecto si falta en JSON
 
-public class InvoiceResponse {
-
-    private final int numFacturas;
-    private final List<InvoiceDto> facturas;
-
-    public InvoiceResponse(int numFacturas, List<InvoiceDto> facturas) {
-        this.numFacturas = numFacturas;
-        this.facturas = facturas;
-    }
-
-    //No he llegado a usar el número de facturas de momento
-    public int getNumFacturas() { return numFacturas; }
-    public List<InvoiceDto> getFacturas() { return facturas; }
-
-
-}
+    @SerializedName("facturas")
+    val facturas: List<InvoiceDto> = emptyList()  // Inmutable, no nullable
+)

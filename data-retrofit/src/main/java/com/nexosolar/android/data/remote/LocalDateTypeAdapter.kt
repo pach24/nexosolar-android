@@ -1,55 +1,67 @@
-package com.nexosolar.android.data.remote;
+package com.nexosolar.android.data.remote
 
-import com.google.gson.*;
-import java.lang.reflect.Type;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.JsonParseException
+import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSerializationContext
+import com.google.gson.JsonSerializer
+import java.lang.reflect.Type
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 /**
- * Adapter personalizado para serializar y deserializar objetos LocalDate con Gson.
+ * Adapter personalizado para serializar y deserializar [LocalDate] con Gson.
  *
- * Permite convertir fechas LocalDate desde/hacia JSON usando el formato dd/MM/yyyy,
- * necesario para la comunicación con la API que espera fechas en formato europeo.
+ * Convierte fechas entre [LocalDate] y JSON usando el formato `dd/MM/yyyy`
+ * (formato europeo esperado por la API).
  *
- * Esta clase debe registrarse en el GsonBuilder para ser utilizada automáticamente
- * en todas las operaciones de serialización/deserialización del proyecto.
+ * Se registra en el [com.google.gson.GsonBuilder] para conversión automática:
+ * ```
+ * GsonBuilder()
+ *     .registerTypeAdapter(LocalDate::class.java, LocalDateTypeAdapter)
+ *     .create()
+ * ```
  */
-public class LocalDateTypeAdapter implements JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
-
-    // ===== Variables de instancia =====
+object LocalDateTypeAdapter : JsonSerializer<LocalDate>, JsonDeserializer<LocalDate> {
 
     /**
-     * Formato de fecha utilizado por la API: dd/MM/yyyy (formato europeo)
+     * Formato de fecha utilizado: dd/MM/yyyy (formato europeo).
      */
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-    // ===== Métodos públicos =====
+    private val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     /**
-     * Convierte un objeto LocalDate a su representación JSON como cadena de texto.
+     * Serializa un [LocalDate] a JSON.
      *
      * @param date Fecha a serializar
-     * @param typeOfSrc Tipo del objeto fuente (no utilizado)
-     * @param context Contexto de serialización de Gson
-     * @return JsonPrimitive con la fecha formateada como dd/MM/yyyy
+     * @param typeOfSrc Tipo del objeto fuente (ignorado)
+     * @param context Contexto de serialización de Gson (ignorado)
+     * @return [JsonPrimitive] con la fecha formateada como `dd/MM/yyyy`
      */
-    @Override
-    public JsonElement serialize(LocalDate date, Type typeOfSrc, JsonSerializationContext context) {
-        return new JsonPrimitive(date.format(formatter));
+    override fun serialize(
+        date: LocalDate,
+        typeOfSrc: Type,
+        context: JsonSerializationContext
+    ): JsonElement {
+        return JsonPrimitive(date.format(formatter))
     }
 
     /**
-     * Convierte una cadena JSON a un objeto LocalDate.
+     * Deserializa una cadena JSON a [LocalDate].
      *
      * @param json Elemento JSON que contiene la fecha como cadena
-     * @param typeOfT Tipo del objeto destino (no utilizado)
-     * @param context Contexto de deserialización de Gson
-     * @return LocalDate parseado desde el formato dd/MM/yyyy
-     * @throws JsonParseException si la cadena no cumple el formato esperado
+     * @param typeOfT Tipo del objeto destino (ignorado)
+     * @param context Contexto de deserialización de Gson (ignorado)
+     * @return [LocalDate] parseado desde el formato `dd/MM/yyyy`
+     * @throws JsonParseException Si la cadena no cumple el formato esperado
      */
-    @Override
-    public LocalDate deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-            throws JsonParseException {
-        return LocalDate.parse(json.getAsString(), formatter);
+    @Throws(JsonParseException::class)
+    override fun deserialize(
+        json: JsonElement,
+        typeOfT: Type,
+        context: JsonDeserializationContext
+    ): LocalDate {
+        return LocalDate.parse(json.getAsString(), formatter)
     }
 }
