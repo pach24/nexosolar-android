@@ -41,20 +41,14 @@ class InvoiceViewModel(
         private const val TAG = "InvoiceVM"
     }
 
-    // ========== ESTADO DE LA UI (Sealed Interface) ==========
 
-    sealed interface InvoiceUiState {
-        object Loading : InvoiceUiState
-        object Empty : InvoiceUiState
-        data class Success(val invoices: List<Invoice>) : InvoiceUiState
-        data class Error(val message: String, val type: ErrorClassifier.ErrorType) : InvoiceUiState
-    }
+
 
     // ========== STATEFLOWS (Fuente de verdad) ==========
 
     // Estado principal de la UI (Carga, Éxito, Error)
-    private val _uiState = MutableStateFlow<InvoiceUiState>(InvoiceUiState.Loading)
-    val uiState: StateFlow<InvoiceUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow<InvoiceUIState>(InvoiceUIState.Loading)
+    val uiState: StateFlow<InvoiceUIState> = _uiState.asStateFlow()
 
     // Estado de filtros (separado porque es independiente del estado de carga de la lista)
     private val _filterState = MutableStateFlow(InvoiceFilterUIState())
@@ -77,13 +71,13 @@ class InvoiceViewModel(
     private fun observarFacturas() {
         collectionJob?.cancel()
         collectionJob = viewModelScope.launch {
-            _uiState.value = InvoiceUiState.Loading
+            _uiState.value = InvoiceUIState.Loading
 
             getInvoicesUseCase()
                 .catch { error ->
                     Logger.e(TAG, "[ERROR] Flow error: ${error.message}", error)
                     val errorType = ErrorClassifier.classify(error)
-                    _uiState.value = InvoiceUiState.Error(
+                    _uiState.value = InvoiceUIState.Error(
                         message = errorType.toUserMessage(), // Asegúrate de tener esta extension o usa string directo
                         type = errorType
                     )
@@ -93,7 +87,7 @@ class InvoiceViewModel(
                     originalInvoices = invoices
 
                     if (invoices.isEmpty()) {
-                        _uiState.value = InvoiceUiState.Empty
+                        _uiState.value = InvoiceUIState.Empty
                     } else {
                         // Inicializamos filtros solo si es la primera carga (opcional)
                         if (_filterState.value.statistics.maxAmount == 0f) {
@@ -151,9 +145,9 @@ class InvoiceViewModel(
         if (filtered.isEmpty() && originalInvoices.isNotEmpty()) {
             // Caso especial: Hay datos pero el filtro los ocultó todos
             // Podrías tener un estado EmptyFiltered o simplemente Empty
-            _uiState.value = InvoiceUiState.Empty
+            _uiState.value = InvoiceUIState.Empty
         } else {
-            _uiState.value = InvoiceUiState.Success(filtered)
+            _uiState.value = InvoiceUIState.Success(filtered)
         }
     }
 

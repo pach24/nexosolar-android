@@ -68,13 +68,19 @@ class InvoiceRepositoryImpl(
                     fetchAndCacheInvoices()
                 } catch (e: Exception) {
                     Logger.e(TAG, "[NETWORK] Background update failed: ${e.message}")
-                    // No re-lanzamos la excepción: el usuario sigue viendo el caché felizmente
+                    val cacheCount = localDataSource.getCount()
+
+                    if (cacheCount == 0) {
+                        // No hay datos locales, lanzamos el error
+                        throw e
+                    } else {
+                        // Hay datos locales, ignoramos el error
+                        Logger.w(TAG, "Using cached data (${cacheCount} items)")
+                    }
                 }
             }
             .catch { e ->
-                // Este catch solo captura errores de Room (lectura de BD)
-                // Si Room falla, es un error fatal de aplicación
-                Logger.e(TAG, "[DATABASE] Room flow failed: ${e.message}")
+                Logger.e(TAG, "[FLOW] Error: ${e.message}")
                 throw e
             }
             .flowOn(Dispatchers.IO)
@@ -112,28 +118,17 @@ class InvoiceRepositoryImpl(
      * Llamado desde onStart{} del Flow.
      */
     private suspend fun fetchAndCacheInvoices() {
-        try {
-            val cacheCount = localDataSource.getCount()
 
-            // Si ya hay caché, no bloqueamos ni forzamos (Room ya emitió los datos)
-            // Solo actualizamos si está vacío o si queremos política de "siempre actualizar"
-            // Aquí asumimos política: Si caché existe, NO forzar red inmediatamente (ahorro datos)
-            // Si prefieres "siempre actualizar al abrir", comenta el if(cacheCount > 0)
 
-            /* Política actual: Siempre intenta actualizar para tener datos frescos */
-            Logger.d(TAG, "[NETWORK] Requesting data from remote source...")
-            val remoteEntities = remoteDataSource.getFacturas()
-            Logger.d(TAG, "[NETWORK] Received ${remoteEntities.size} invoices")
+        Logger.d(TAG, "[NETWORK] Requesting data from remote source...")
 
-            // Guardar dispara la emisión automática de Room
-            saveToDatabase(remoteEntities)
-            Logger.d(TAG, "[DATABASE] Saved to Room -> Flow updated automatically")
+        // Si esto falla, la excepción subirá al onStart (¡EXACTAMENTE LO QUE QUEREMOS!)
+        val remoteEntities = remoteDataSource.getFacturas()
 
-        } catch (e: Exception) {
-            // Error silencioso en background: El usuario ya está viendo el caché
-            Logger.e(TAG, "[ERROR] Network background update failed: ${e.message}")
-            // No hacemos throw aquí para no romper el Flow que ya muestra datos cacheados
-        }
+        Logger.d(TAG, "[NETWORK] Received ${remoteEntities.size} invoices")
+
+        saveToDatabase(remoteEntities)
+        Logger.d(TAG, "[DATABASE] Saved to Room -> Flow updated automatically")
     }
 
     /**

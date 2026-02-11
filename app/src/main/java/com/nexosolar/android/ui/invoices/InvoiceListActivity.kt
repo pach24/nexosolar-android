@@ -45,7 +45,7 @@ class InvoiceListActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
 
         setupRecyclerView()
-        setupObservers() // ✅ Aquí está el cambio clave a Flow
+        setupObservers()
         setupListeners()
         setupBackPressHandler()
 
@@ -87,39 +87,40 @@ class InvoiceListActivity : AppCompatActivity() {
 
     // ========== UI RENDERING ==========
 
-    private fun renderUiState(state: InvoiceViewModel.InvoiceUiState) {
-        // Si hay un filtro activo, no tocamos la visibilidad principal
+    private fun renderUiState(state: InvoiceUIState) {
+        // Si hay filtro activo, no tocamos nada para evitar glitches visuales
         if (isFilteringActive()) return
 
-        // 1. Resetear visibilidades comunes
+        // 1. Resetear visibilidades (ocultar todo por defecto)
         ocultarShimmer()
         binding.layoutErrorState.isVisible = false
         binding.layoutEmptyState.isVisible = false
         binding.recyclerView.isVisible = false
 
-        // 2. Manejar cada estado
+        // 2. Activar lo que corresponda
         when (state) {
-            is InvoiceViewModel.InvoiceUiState.Loading -> {
+            is InvoiceUIState.Loading -> {
                 mostrarShimmer()
             }
-            is InvoiceViewModel.InvoiceUiState.Success -> {
+            is InvoiceUIState.Success -> {
                 binding.recyclerView.isVisible = true
                 adapter.submitList(state.invoices)
             }
-            is InvoiceViewModel.InvoiceUiState.Empty -> {
+            is InvoiceUIState.Empty -> {
                 binding.layoutEmptyState.isVisible = true
-                // Opcional: Limpiar adapter
                 adapter.submitList(emptyList())
             }
-            is InvoiceViewModel.InvoiceUiState.Error -> {
+            is InvoiceUIState.Error -> {
                 configurarVistaError(state.type)
                 binding.layoutErrorState.isVisible = true
             }
         }
 
-        // Actualizar menú (habilitar/deshabilitar filtros)
+        // Actualizar menú (para habilitar/deshabilitar botón de filtro)
         invalidateOptionsMenu()
     }
+
+
 
     /**
      * Helper para re-renderizar el último estado conocido.
@@ -190,19 +191,21 @@ class InvoiceListActivity : AppCompatActivity() {
         menuInflater.inflate(R.menu.menu_filter, menu)
         val filtroItem = menu.findItem(R.id.action_filters)
 
-        // Lógica simplificada con StateFlow
         val currentState = invoiceViewModel.uiState.value
-        val canFilter = currentState is InvoiceViewModel.InvoiceUiState.Success
-                || (currentState is InvoiceViewModel.InvoiceUiState.Empty && false) // No filtrar si está vacío
+
+        val canFilter = currentState is InvoiceUIState.Success
+        // || currentState is InvoiceUIState.Empty (si quisieras permitir filtro en vacío)
 
         filtroItem.isEnabled = canFilter
         return true
     }
 
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.action_filters) {
             val currentState = invoiceViewModel.uiState.value
-            if (currentState is InvoiceViewModel.InvoiceUiState.Success) {
+
+            if (currentState is InvoiceUIState.Success) {
                 mostrarFiltroFragment()
             } else {
                 Toast.makeText(this, R.string.no_data_to_filter, Toast.LENGTH_SHORT).show()
@@ -211,6 +214,7 @@ class InvoiceListActivity : AppCompatActivity() {
         }
         return super.onOptionsItemSelected(item)
     }
+
 
     private fun mostrarFiltroFragment() {
         binding.fragmentContainer.isVisible = true

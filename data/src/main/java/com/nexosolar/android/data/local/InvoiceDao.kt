@@ -21,5 +21,7 @@ interface InvoiceDao {
 
     @Query("DELETE FROM facturas")
     suspend fun deleteAll()
+
+
 }
 
