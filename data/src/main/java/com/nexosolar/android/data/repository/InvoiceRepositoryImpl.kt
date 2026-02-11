@@ -1,28 +1,36 @@
 package com.nexosolar.android.data.repository
 
-import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.data.InvoiceMapper
 import com.nexosolar.android.data.local.InvoiceDao
 import com.nexosolar.android.data.local.InvoiceEntity
 import com.nexosolar.android.data.source.InvoiceRemoteDataSource
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.repository.InvoiceRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 
 /**
- * Implementación del repositorio de facturas.
+ * Implementación del repositorio de facturas usando Flow (Programación Reactiva).
  *
  * Responsabilidades:
- * - Coordinar fuentes de datos remota (API) y local (Room)
- * - Implementar estrategia de caché con Single Source of Truth
- * - Proporcionar fallback a datos antiguos en caso de error de red
- * - Soportar modo Mock para testing sin backend
+ * - Coordinar fuentes de datos remota (API) y local (Room) con patrón Offline-First
+ * - Soportar modo Mock para testing sin backend (bypass de Room)
+ * - Gestionar errores de red manteniendo caché visible (Fallback automático)
  *
- * Estrategia de datos:
- * - En modo Mock: bypass de Room, usa MockCircular directamente
- * - En modo Normal: Room como caché, red como fuente principal
- * - Fallback: si falla la red, retorna datos antiguos de Room
+ * Estrategia de datos con Flow:
+ * - Modo Mock: Flow directo desde MockCircular (sin persistencia)
+ * - Modo Normal:
+ *   1. Room emite caché inmediatamente (Flow reactivo)
+ *   2. onStart lanza actualización en segundo plano (red)
+ *   3. Al guardar en Room, el Flow emite automáticamente los nuevos datos
+ *   4. catch maneja errores de red sin romper el flujo de UI
  */
 class InvoiceRepositoryImpl(
     private val remoteDataSource: InvoiceRemoteDataSource,
@@ -36,93 +44,100 @@ class InvoiceRepositoryImpl(
     }
 
     /**
-     * Obtiene la lista de facturas según la estrategia de caché.
+     * Obtiene el flujo reactivo de facturas.
      *
-     * @param forceUpdate true para forzar actualización desde red (pull-to-refresh)
-     * @return Lista de facturas del dominio
-     * @throws Exception si no hay red ni datos en caché
+     * @return Flow que emite actualizaciones automáticas de facturas
      */
-    override suspend fun getInvoices(forceUpdate: Boolean): List<Invoice> = withContext(Dispatchers.IO) {
-        Logger.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        Logger.d(TAG, "[START] getInvoices(forceUpdate=$forceUpdate, mockMode=$isMockMode)")
-
-        // MODO MOCK: Bypass de Room para testing con MockCircular
+    override fun getInvoices(): Flow<List<Invoice>> {
+        // Modo Mock
         if (isMockMode) {
-            Logger.d(TAG, "[MOCK] Bypassing Room, using MockCircular")
+            return flow {
+                emit(mapper.toDomainList(remoteDataSource.getFacturas()))
+            }.flowOn(Dispatchers.IO)
+        }
 
-            return@withContext try {
-                val remoteEntities = remoteDataSource.getFacturas()
-                Logger.d(TAG, "[MOCK] Received ${remoteEntities.size} invoices from MockCircular")
-                mapper.toDomainList(remoteEntities)
-            } catch (e: Exception) {
-                Logger.e(TAG, "[MOCK] Error: ${e.message}", e)
+        // Modo Producción (Pure Flow)
+        return localDataSource.getAllInvoices() // Fuente de verdad única
+            .map { entities ->
+                mapper.toDomainList(entities)
+            }
+            .onStart {
+                // Actualización lateral (side-effect)
+                // Si falla la red, capturamos aquí para NO romper el Flow de Room
+                try {
+                    fetchAndCacheInvoices()
+                } catch (e: Exception) {
+                    Logger.e(TAG, "[NETWORK] Background update failed: ${e.message}")
+                    // No re-lanzamos la excepción: el usuario sigue viendo el caché felizmente
+                }
+            }
+            .catch { e ->
+                // Este catch solo captura errores de Room (lectura de BD)
+                // Si Room falla, es un error fatal de aplicación
+                Logger.e(TAG, "[DATABASE] Room flow failed: ${e.message}")
                 throw e
             }
+            .flowOn(Dispatchers.IO)
+    }
+
+    /**
+     * Fuerza actualización manual (Pull-to-Refresh).
+     * Limpia la BD y trae datos nuevos. Room emitirá automáticamente al guardar.
+     */
+    override suspend fun refreshInvoices() = withContext(Dispatchers.IO) {
+        Logger.d(TAG, "[REFRESH] Force refreshing invoices...")
+
+        if (isMockMode) {
+            Logger.d(TAG, "[REFRESH] Mock mode: bypassing Room refresh logic")
+            return@withContext
         }
 
-        // MODO PRODUCCIÓN: Estrategia con Room como caché
-
-        // 1. Si no se fuerza actualización, intentar leer de caché
-        if (!forceUpdate) {
-            val localData = localDataSource.getAllList()
-            Logger.d(TAG, "[CACHE] Found ${localData.size} invoices in Room")
-
-            if (localData.isNotEmpty()) {
-                Logger.d(TAG, "[CACHE] Returning cached data")
-                return@withContext mapper.toDomainList(localData)
-            }
-            Logger.d(TAG, "[CACHE] Empty, fetching from network...")
-        } else {
-            Logger.d(TAG, "[REFRESH] Force update requested, skipping cache")
-        }
-
-        // 2. Intentar obtener datos de red
         try {
-            Logger.d(TAG, "[NETWORK] Requesting data from remote source...")
-            val remoteEntities = remoteDataSource.getFacturas()
-            Logger.d(TAG, "[NETWORK] Received ${remoteEntities.size} invoices")
-
-            // 3. Guardar en Room para futuras consultas
-            saveToDatabase(remoteEntities)
-            Logger.d(TAG, "[DATABASE] Saved to Room successfully")
-
-            return@withContext mapper.toDomainList(remoteEntities)
-
+            val entities = remoteDataSource.getFacturas()
+            Logger.d(TAG, "[REFRESH] Received ${entities.size} invoices")
+            saveToDatabase(entities) // Esto disparará el Flow automáticamente
+            Logger.d(TAG, "[REFRESH] Completed successfully")
         } catch (e: Exception) {
-            Logger.e(TAG, "[ERROR] Network failure: ${e.javaClass.simpleName} - ${e.message}", e)
-
-            // 4. Fallback: intentar usar datos antiguos de Room
-            val localData = localDataSource.getAllList()
-
-            if (localData.isNotEmpty()) {
-                Logger.w(TAG, "[FALLBACK] Using stale cache (${localData.size} invoices)")
-                return@withContext mapper.toDomainList(localData)
-            }
-
-            // 5. Sin red ni caché: propagar excepción
-            Logger.e(TAG, "[FATAL] No network or cache available")
+            Logger.e(TAG, "[REFRESH] Error: ${e.message}", e)
             throw e
         }
     }
 
+    // =========================================================================
+    // MÉTODOS PRIVADOS
+    // =========================================================================
+
     /**
-     * Fuerza la actualización de facturas desde la red.
-     * Limpia y reemplaza los datos en Room.
-     *
-     * @throws Exception si hay error de red
+     * Lógica de actualización automática en segundo plano.
+     * Llamado desde onStart{} del Flow.
      */
-    override suspend fun refreshInvoices() = withContext(Dispatchers.IO) {
-        Logger.d(TAG, "[REFRESH] Force refreshing invoices...")
-        val entities = remoteDataSource.getFacturas()
-        saveToDatabase(entities)
-        Logger.d(TAG, "[REFRESH] Completed successfully")
+    private suspend fun fetchAndCacheInvoices() {
+        try {
+            val cacheCount = localDataSource.getCount()
+
+            // Si ya hay caché, no bloqueamos ni forzamos (Room ya emitió los datos)
+            // Solo actualizamos si está vacío o si queremos política de "siempre actualizar"
+            // Aquí asumimos política: Si caché existe, NO forzar red inmediatamente (ahorro datos)
+            // Si prefieres "siempre actualizar al abrir", comenta el if(cacheCount > 0)
+
+            /* Política actual: Siempre intenta actualizar para tener datos frescos */
+            Logger.d(TAG, "[NETWORK] Requesting data from remote source...")
+            val remoteEntities = remoteDataSource.getFacturas()
+            Logger.d(TAG, "[NETWORK] Received ${remoteEntities.size} invoices")
+
+            // Guardar dispara la emisión automática de Room
+            saveToDatabase(remoteEntities)
+            Logger.d(TAG, "[DATABASE] Saved to Room -> Flow updated automatically")
+
+        } catch (e: Exception) {
+            // Error silencioso en background: El usuario ya está viendo el caché
+            Logger.e(TAG, "[ERROR] Network background update failed: ${e.message}")
+            // No hacemos throw aquí para no romper el Flow que ya muestra datos cacheados
+        }
     }
 
     /**
-     * Guarda facturas en la base de datos local.
-     * Implementa estrategia de reemplazo total (delete + insert).
-     *
-     * @param entities Lista de entidades a guardar
+     * Transacción de reemplazo total en base de datos.
      */
     private suspend fun saveToDatabase(entities: List<InvoiceEntity>) {
         localDataSource.deleteAll()

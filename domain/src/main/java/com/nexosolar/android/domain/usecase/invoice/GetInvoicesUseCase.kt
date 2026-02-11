@@ -2,6 +2,7 @@ package com.nexosolar.android.domain.usecase.invoice
 
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.repository.InvoiceRepository
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Caso de uso para obtener el listado de facturas.
@@ -16,10 +17,9 @@ class GetInvoicesUseCase(
     /**
      * Ejecuta el caso de uso para obtener facturas.
      *
-     * @return Lista de facturas
-     * @throws Exception si ocurre un error
+     * @return Flow que emite listas de facturas cuando hay cambios
      */
-    suspend operator fun invoke(): List<Invoice> {
+    suspend operator fun invoke(): Flow<List<Invoice>>  {
         return repository.getInvoices()
     }
 

@@ -1,6 +1,7 @@
 package com.nexosolar.android.domain.repository
 
 import com.nexosolar.android.domain.models.Invoice
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Contrato de repositorio para la gestión de facturas.
@@ -18,7 +19,7 @@ interface InvoiceRepository {
      * @return Lista de facturas del usuario
      * @throws Exception si ocurre un error de red o base de datos
      */
-    suspend fun getInvoices(forceUpdate: Boolean = false): List<Invoice>
+    fun getInvoices(): Flow<List<Invoice>>
 
     /**
      * Fuerza una actualización de datos desde la fuente remota.

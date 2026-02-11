@@ -1,4 +1,3 @@
-// ui/invoices/FilterFragment.kt
 package com.nexosolar.android.ui.invoices
 
 import android.os.Bundle
@@ -7,6 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.datepicker.CalendarConstraints
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.nexosolar.android.R
@@ -15,22 +17,20 @@ import com.nexosolar.android.databinding.FragmentFilterBinding
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.models.InvoiceState
 import com.nexosolar.android.ui.common.RangeValidator
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneOffset
 
 /**
  * Fragment para configurar filtros de facturas.
- *
- * Responsabilidades:
- * - Renderizar UI según el estado del ViewModel
- * - Capturar interacciones del usuario
- * - Mantener estado temporal local hasta presionar "Aplicar"
+ * MIGRADO A FLOW: Usa StateFlow y repeatOnLifecycle.
  */
 class FilterFragment : Fragment() {
 
     private var _binding: FragmentFilterBinding? = null
     private val binding get() = _binding!!
 
+    // Referencia al ViewModel compartido
     private val viewModel: InvoiceViewModel by activityViewModels()
 
     /**
@@ -54,12 +54,21 @@ class FilterFragment : Fragment() {
         setupListeners()
     }
 
-    // ========== OBSERVERS ==========
+    // ========== OBSERVERS (MIGRADO A FLOW) ==========
 
     private fun setupObservers() {
-        viewModel.filterUIState.observe(viewLifecycleOwner) { uiState ->
-            tempFilters = uiState.filters
-            renderUI(uiState)
+        // ✅ CAMBIO CLAVE: Usar lifecycleScope + repeatOnLifecycle
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Observamos el estado de filtros
+                viewModel.filterState.collect { uiState ->
+                    // Guardamos referencia inicial si es null
+                    if (tempFilters == null) {
+                        tempFilters = uiState.filters
+                    }
+                    renderUI(uiState)
+                }
+            }
         }
     }
 
@@ -77,7 +86,10 @@ class FilterFragment : Fragment() {
             setupStateCheckboxes()
 
             btnAplicar.setOnClickListener { applyFilters() }
-            btnBorrar.setOnClickListener { viewModel.resetearFiltros() }
+            btnBorrar.setOnClickListener {
+                viewModel.resetearFiltros()
+                closeFragment() // Opcional: cerrar al resetear
+            }
             btnCerrar.setOnClickListener { closeFragment() }
         }
     }
@@ -100,15 +112,18 @@ class FilterFragment : Fragment() {
 
     // ========== UI RENDERING ==========
 
-    private fun renderUI(uiState:InvoiceFilterUIState) {
+    private fun renderUI(uiState: InvoiceFilterUIState) {
+        // Usamos tempFilters si existe (edición en curso), sino el del estado
+        val filtersToRender = tempFilters ?: uiState.filters
+
         with(binding) {
-            renderDateButtons(uiState.filters)
+            renderDateButtons(filtersToRender)
 
             if (uiState.statistics.maxAmount > 0) {
-                renderSlider(uiState)
+                renderSlider(uiState, filtersToRender)
             }
 
-            renderStateCheckboxes(uiState.filters)
+            renderStateCheckboxes(filtersToRender)
 
             btnAplicar.isEnabled = !uiState.isApplying
         }
@@ -124,29 +139,32 @@ class FilterFragment : Fragment() {
         } ?: getString(R.string.dia_mes_ano)
     }
 
-    private fun renderSlider(uiState: InvoiceFilterUIState) {
-        val filters = uiState.filters
+    private fun renderSlider(uiState: InvoiceFilterUIState, currentFilters: InvoiceFilters) {
         val maxAmount = uiState.statistics.maxAmount
 
         with(binding.rangeSlider) {
             valueFrom = 0f
             valueTo = maxAmount
 
-            val minVal = (filters.minAmount ?: 0f).coerceIn(0f, maxAmount)
-            val maxVal = (filters.maxAmount ?: maxAmount).coerceIn(minVal, maxAmount)
+            val minVal = (currentFilters.minAmount ?: 0f).coerceIn(0f, maxAmount)
+            val maxVal = (currentFilters.maxAmount ?: maxAmount).coerceIn(minVal, maxAmount)
 
-            setValues(minVal, maxVal)
+            // Evitar crash si min > max por redondeo
+            if (minVal <= maxVal) {
+                setValues(minVal, maxVal)
+            }
         }
 
         // Actualizar etiquetas
         binding.tvMaxImporte.text = String.format("%.2f €", maxAmount)
-        binding.tvMinValue.text = formatSliderValue(filters.minAmount ?: 0f, maxAmount, isMaxValue = false)
-        binding.tvMaxValue.text = formatSliderValue(filters.maxAmount ?: maxAmount, maxAmount, isMaxValue = true)
+        binding.tvMinValue.text = formatSliderValue(currentFilters.minAmount ?: 0f, maxAmount, isMaxValue = false)
+        binding.tvMaxValue.text = formatSliderValue(currentFilters.maxAmount ?: maxAmount, maxAmount, isMaxValue = true)
     }
 
     private fun renderStateCheckboxes(filters: InvoiceFilters) {
         val states = filters.filteredStates
 
+        // Evitamos disparar listeners al setear estado programáticamente
         with(binding) {
             checkPagadas.isChecked = states.contains(InvoiceState.PAID.serverValue)
             checkPendientesPago.isChecked = states.contains(InvoiceState.PENDING.serverValue)
@@ -164,10 +182,10 @@ class FilterFragment : Fragment() {
         val min = values[0]
         val max = values[1]
 
-        tempFilters = tempFilters?.copy(minAmount = min, maxAmount = max)
+        tempFilters = tempFilters?.copy(minAmount = min, maxAmount = max) ?: InvoiceFilters(minAmount = min, maxAmount = max)
 
         // Feedback visual inmediato
-        val maxAmount = viewModel.filterUIState.value?.statistics?.maxAmount ?: max
+        val maxAmount = viewModel.filterState.value.statistics.maxAmount
         binding.tvMinValue.text = formatSliderValue(min, maxAmount, isMaxValue = false)
         binding.tvMaxValue.text = formatSliderValue(max, maxAmount, isMaxValue = true)
     }
@@ -181,11 +199,14 @@ class FilterFragment : Fragment() {
             currentStates.remove(state.serverValue)
         }
 
-        tempFilters = tempFilters?.copy(filteredStates = currentStates)
+        // Crear filtros vacíos si es null
+        val baseFilters = tempFilters ?: InvoiceFilters()
+        tempFilters = baseFilters.copy(filteredStates = currentStates)
     }
 
     private fun showDatePicker(isStartDate: Boolean) {
-        val uiState = viewModel.filterUIState.value ?: return
+        // ✅ CAMBIO: Acceso directo a .value de StateFlow
+        val uiState = viewModel.filterState.value
 
         val (validationMin, validationMax) = if (isStartDate) {
             uiState.getStartDateConstraints()
@@ -223,12 +244,14 @@ class FilterFragment : Fragment() {
             .atZone(ZoneOffset.UTC)
             .toLocalDate()
 
+        val baseFilters = tempFilters ?: InvoiceFilters()
         tempFilters = if (isStartDate) {
-            tempFilters?.copy(startDate = selectedDate)
+            baseFilters.copy(startDate = selectedDate)
         } else {
-            tempFilters?.copy(endDate = selectedDate)
+            baseFilters.copy(endDate = selectedDate)
         }
 
+        // Forzar renderizado parcial de botones
         tempFilters?.let { renderDateButtons(it) }
     }
 
@@ -237,7 +260,6 @@ class FilterFragment : Fragment() {
             viewModel.updateFilters(filters)
             viewModel.applyFilters()
         }
-
         closeFragment()
     }
 
@@ -247,10 +269,6 @@ class FilterFragment : Fragment() {
 
     // ========== HELPERS ==========
 
-    /**
-     * Formatea el valor del slider para mostrar.
-     * Si es el valor máximo y coincide con el límite, muestra decimales.
-     */
     private fun formatSliderValue(value: Float, maxValue: Float, isMaxValue: Boolean): String {
         return if (isMaxValue && value >= maxValue - 0.001f) {
             String.format("%.2f €", value)
@@ -258,8 +276,6 @@ class FilterFragment : Fragment() {
             String.format("%.0f €", value)
         }
     }
-
-    // ========== LIFECYCLE ==========
 
     override fun onDestroyView() {
         super.onDestroyView()

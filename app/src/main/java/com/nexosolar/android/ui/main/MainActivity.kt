@@ -39,7 +39,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // En Kotlin, setPadding es más limpio
             v.setPadding(systemBars.left, 0, systemBars.right, systemBars.bottom)
             insets
         }
