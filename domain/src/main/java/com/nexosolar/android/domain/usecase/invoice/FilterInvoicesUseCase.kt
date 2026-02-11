@@ -1,65 +1,81 @@
 package com.nexosolar.android.domain.usecase.invoice
 
 import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.models.InvoiceFilters
 import java.time.LocalDate
 
 /**
  * Caso de uso para filtrar facturas.
- * Refactorizado para usar características idiomáticas de Kotlin:
- * - Operador 'invoke' para llamadas directas
- * - Funciones de orden superior de colecciones (filter, all, any)
- * - Null-safety mejorada
- * - Parámetros con valores por defecto
+ * Contiene la lógica pura de negocio para aplicar filtros combinados (AND).
  */
 class FilterInvoicesUseCase {
 
     /**
      * Aplica filtros combinados (AND) a la lista de facturas.
-     *
-     * @param invoices Lista original (inmutable preferiblemente)
-     * @param statusList Lista de estados permitidos. Si es null o vacía, se ignora este filtro.
-     * @param dateRange Rango de fechas (inicio, fin).
-     * @param amountRange Rango de importes (min, max).
+     * @param invoices Lista original inmutable
+     * @param filters Criterios de filtrado encapsulados
+     * @return Lista filtrada
      */
     operator fun invoke(
         invoices: List<Invoice>,
-        statusList: List<String>? = null,
-        dateRange: ClosedRange<LocalDate>? = null,
-        amountRange: ClosedFloatingPointRange<Float>? = null
+        filters: InvoiceFilters
     ): List<Invoice> {
         // Si la lista está vacía, retornamos rápido
         if (invoices.isEmpty()) return emptyList()
 
         return invoices.filter { invoice ->
-            // Usamos una función local o lógica directa para validar cada criterio.
-            // La función 'filter' solo incluirá la factura si TODAS las condiciones son true.
-
-            val matchStatus = statusList.isNullOrEmpty() ||
-                    statusList.contains(invoice.invoiceStatus)
-
-            val matchDate = isDateInRange(invoice.invoiceDate, dateRange)
-
-            val matchAmount = isAmountInRange(invoice.invoiceAmount, amountRange)
-
-            // Retornamos true solo si cumple todo (AND implícito)
-            matchStatus && matchDate && matchAmount
+            // La factura debe cumplir TODOS los criterios (AND)
+            matchesStatus(invoice, filters.filteredStates) &&
+                    matchesDateRange(invoice, filters.startDate, filters.endDate) &&
+                    matchesAmountRange(invoice, filters.minAmount, filters.maxAmount)
         }
     }
 
-    // Funciones privadas auxiliares para mantener limpio el 'invoke'
+    /**
+     * Verifica si la factura cumple con el filtro de estado.
+     */
+    private fun matchesStatus(invoice: Invoice, allowedStates: Set<String>): Boolean {
+        // Si no hay filtro de estado, cualquier estado es válido
+        if (allowedStates.isEmpty()) return true
 
-    private fun isDateInRange(date: LocalDate?, range: ClosedRange<LocalDate>?): Boolean {
-        // Si no hay rango definido, cualquier fecha es válida
-        if (range == null) return true
-        // Si hay rango pero la factura no tiene fecha, no cumple
-        if (date == null) return false
-
-        // Operador 'in' de Kotlin: verifica si está dentro del rango (inclusive)
-        return date in range
+        // Verificamos si el estado de la factura está en los permitidos
+        val estadoFactura = invoice.estadoEnum.serverValue
+        return estadoFactura in allowedStates
     }
 
-    private fun isAmountInRange(amount: Float, range: ClosedFloatingPointRange<Float>?): Boolean {
-        if (range == null) return true
-        return amount in range
+    /**
+     * Verifica si la factura cumple con el filtro de fecha.
+     */
+    private fun matchesDateRange(
+        invoice: Invoice,
+        startDate: LocalDate?,
+        endDate: LocalDate?
+    ): Boolean {
+        val fechaFactura = invoice.invoiceDate ?: return false
+
+        // Si la factura no tiene fecha, no cumple con el filtro
+
+        // Verificar límite inferior
+        if (startDate != null && fechaFactura.isBefore(startDate)) return false
+
+        // Verificar límite superior
+        if (endDate != null && fechaFactura.isAfter(endDate)) return false
+
+        return true
+    }
+
+    /**
+     * Verifica si la factura cumple con el filtro de importe.
+     */
+    private fun matchesAmountRange(
+        invoice: Invoice,
+        minAmount: Float?,
+        maxAmount: Float?
+    ): Boolean {
+        val importe = invoice.invoiceAmount
+        val min = minAmount ?: 0f
+        val max = maxAmount ?: Float.MAX_VALUE
+
+        return importe in min..max
     }
 }

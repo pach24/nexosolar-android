@@ -2,6 +2,7 @@ package com.nexosolar.android.ui.invoices.managers
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.nexosolar.android.core.ErrorClassifier
 
 /**
  * Gestor especializado en estados de UI para la pantalla de facturas.
@@ -74,6 +75,19 @@ class InvoiceStateManager {
         _errorMessage.value = message
         _showEmptyError.value = true
     }
+    /**
+     * Muestra error genérico con clasificación automática.
+     * Determina el tipo de error y lo clasifica automáticamente.
+     * @param errorType Tipo de error clasificado (usar ErrorClassifier)
+     */
+    fun showError(errorType: ErrorClassifier.ErrorType) {
+        return when (errorType) {
+            is ErrorClassifier.ErrorType.Network -> showNetworkError(errorType.details)
+            is ErrorClassifier.ErrorType.Server -> showServerError(errorType.details)
+            is ErrorClassifier.ErrorType.Unknown -> showServerError(errorType.details ?: "Error inesperado")
+        }
+    }
+
 
     /**
      * Muestra error de servidor con mensaje específico.

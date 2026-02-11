@@ -18,7 +18,7 @@ interface InvoiceRepository {
      * @return Lista de facturas del usuario
      * @throws Exception si ocurre un error de red o base de datos
      */
-    suspend fun getInvoices(): List<Invoice>
+    suspend fun getInvoices(forceUpdate: Boolean = false): List<Invoice>
 
     /**
      * Fuerza una actualización de datos desde la fuente remota.

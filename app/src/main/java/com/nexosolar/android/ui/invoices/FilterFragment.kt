@@ -40,9 +40,7 @@ class FilterFragment : Fragment() {
 
     private fun setupObservers() {
         viewModel.filtrosActuales.observe(viewLifecycleOwner) { actualizarUI(it) }
-        viewModel.errorValidacion.observe(viewLifecycleOwner) { error ->
-            error?.let { Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show() }
-        }
+
     }
 
     private fun setupListeners() {
