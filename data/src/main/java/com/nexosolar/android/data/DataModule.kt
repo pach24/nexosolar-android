@@ -2,6 +2,7 @@ package com.nexosolar.android.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.data.local.AppDatabase
 import com.nexosolar.android.data.local.InvoiceDao
 import com.nexosolar.android.data.remote.ApiClientManager
@@ -13,9 +14,10 @@ import com.nexosolar.android.domain.repository.InstallationRepository
 import com.nexosolar.android.domain.repository.InvoiceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import androidx.core.content.edit
 
 /**
- * Módulo de inyección de dependencias manual para la capa de datos con corrutinas.
+ * Módulo de inyección de dependencias manual para la capa de datos.
  *
  * Responsabilidades:
  * - Proveer instancias configuradas de repositorios
@@ -36,7 +38,8 @@ class DataModule(
 
     private val context: Context = context.applicationContext
 
-    companion object {
+    private companion object {
+        private const val TAG = "DataModule"
         private const val PREFS_NAME = "RepoPrefs"
         private const val KEY_LAST_MODE_WAS_MOCK = "last_mode_was_mock"
         private const val KEY_LAST_URL_WAS_ALT = "last_url_was_alt"
@@ -64,17 +67,19 @@ class DataModule(
                 (!useMock && useAlternativeUrl != lastUrlWasAlt)
 
         if (configChanged) {
+            Logger.w(TAG, "[CONFIG] Configuration changed: Mock=$useMock, AltUrl=$useAlternativeUrl")
             clearDatabaseOnModeSwitch(invoiceDao)
 
             // Guardar nueva configuración
-            prefs.edit()
-                .putBoolean(KEY_LAST_MODE_WAS_MOCK, useMock)
-                .putBoolean(KEY_LAST_URL_WAS_ALT, useAlternativeUrl)
-                .apply()
+            prefs.edit {
+                putBoolean(KEY_LAST_MODE_WAS_MOCK, useMock)
+                    .putBoolean(KEY_LAST_URL_WAS_ALT, useAlternativeUrl)
+            }
         }
 
         val remoteDataSource = InvoiceRemoteDataSourceImpl(apiService)
-        return InvoiceRepositoryImpl(remoteDataSource, invoiceDao, useMock)
+        val mapper = InvoiceMapper
+        return InvoiceRepositoryImpl(remoteDataSource, invoiceDao, mapper, isMockMode = useMock)
     }
 
     /**
@@ -92,9 +97,8 @@ class DataModule(
      * @return Instancia de ApiService (Mock o Real según configuración)
      */
     private fun provideApiService(): ApiService {
-        // ✅ CAMBIO: ApiClientManager ahora es object, no necesita .getInstance()
         ApiClientManager.init(context)
-        return ApiClientManager.getApiService(useMock, useAlternativeUrl)  // ⚡ Sin context
+        return ApiClientManager.getApiService(useMock, useAlternativeUrl)
     }
 
     /**
@@ -124,12 +128,15 @@ class DataModule(
      * @param invoiceDao DAO para ejecutar la operación de limpieza
      */
     private fun clearDatabaseOnModeSwitch(invoiceDao: InvoiceDao) {
+        Logger.w(TAG, "[DATABASE] Clearing Room due to configuration change")
+
         try {
             runBlocking(Dispatchers.IO) {
                 invoiceDao.deleteAll()
             }
+            Logger.w(TAG, "[DATABASE] Room cleared successfully")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logger.e(TAG, "[DATABASE] Error clearing Room: ${e.message}", e)
         }
     }
 }

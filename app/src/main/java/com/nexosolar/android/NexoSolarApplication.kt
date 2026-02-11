@@ -2,6 +2,7 @@ package com.nexosolar.android
 
 import android.app.Application
 import com.nexosolar.android.data.DataModule
+import com.nexosolar.android.data.util.Logger
 
 /**
  * Clase Application principal de la app.
@@ -20,6 +21,7 @@ class NexoSolarApplication : Application() {
         super.onCreate()
         // Por defecto: Mock activado, URL Alternativa desactivada
         dataModule = DataModule(this, true, false)
+        Logger.isDebug = BuildConfig.DEBUG
     }
 
     // ===== Métodos públicos =====

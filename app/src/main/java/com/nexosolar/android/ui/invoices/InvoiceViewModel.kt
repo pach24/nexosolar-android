@@ -1,173 +1,273 @@
+// ui/invoices/InvoiceViewModel.kt
 package com.nexosolar.android.ui.invoices
 
-import com.nexosolar.android.core.toUserMessage
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.DateUtils
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.domain.models.newestDate
+import com.nexosolar.android.domain.models.oldestDate
+import com.nexosolar.android.domain.models.maxAmount
+import com.nexosolar.android.domain.models.minAmount
+
+
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
-import com.nexosolar.android.ui.invoices.managers.InvoiceDataManager
-import com.nexosolar.android.ui.invoices.managers.InvoiceFilterManager
 import com.nexosolar.android.ui.invoices.managers.InvoiceStateManager
-import com.nexosolar.android.ui.invoices.managers.InvoiceStatisticsCalculator
+import com.nexosolar.android.ui.invoices.InvoiceFilterUIState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 
+/**
+ * ViewModel para la pantalla de listado de facturas.
+ *
+ * Responsabilidades:
+ * - Orquestar la carga de facturas mediante UseCases
+ * - Gestionar el estado de UI (loading, error, empty, data)
+ * - Coordinar el filtrado de facturas localmente
+ * - Exponer LiveData para observación desde la UI
+ *
+ * Nota: NO contiene lógica de negocio. Toda la lógica está en UseCases y el dominio.
+ */
 class InvoiceViewModel(
-    getInvoicesUseCase: GetInvoicesUseCase,
-    filterInvoicesUseCase: FilterInvoicesUseCase
+    private val getInvoicesUseCase: GetInvoicesUseCase,
+    private val filterInvoicesUseCase: FilterInvoicesUseCase
 ) : ViewModel() {
 
-    // Managers
-    private val dataManager = InvoiceDataManager(getInvoicesUseCase)
-    private val filterManager = InvoiceFilterManager(filterInvoicesUseCase)
-    private val stateManager = InvoiceStateManager()
-    private val statisticsCalculator = InvoiceStatisticsCalculator()
+    // ========== COMPANION ==========
 
-    private var isFirstLoad = true
+    private companion object {
+        private const val TAG = "InvoiceViewModel"
+    }
+
+    // ========== ESTADO PRIVADO ==========
+
+    /**
+     * Copia local de facturas originales para filtrado rápido.
+     */
+    private var originalInvoices: List<Invoice> = emptyList()
+
+    private val stateManager = InvoiceStateManager()
+
+    // ========== LIVEDATA PRIVADO ==========
+
+    private val _facturas = MutableLiveData<List<Invoice>>()
+    private val _filterUIState = MutableLiveData(InvoiceFilterUIState())
+
+    // ========== LIVEDATA PÚBLICO ==========
+
+    /**
+     * Lista de facturas actual (puede estar filtrada o completa).
+     */
+    val facturas: LiveData<List<Invoice>> = _facturas
+
+    /**
+     * Estado completo de los filtros y sus estadísticas.
+     * Incluye: filtros actuales, importes máx/mín, rango de fechas.
+     */
+    val filterUIState: LiveData<InvoiceFilterUIState> = _filterUIState
+
+    /**
+     * Estado visual de la pantalla (loading, error, data, empty).
+     */
+    val viewState: LiveData<InvoiceStateManager.ViewState> = stateManager.currentState
+
+    /**
+     * Mensaje de error descriptivo (si aplica).
+     */
+    val errorMessage: LiveData<String?> = stateManager.errorMessage
+
+    /**
+     * Indica si debe mostrarse la pantalla de error vacía.
+     */
+    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
+
+    // ========== INIT ==========
 
     init {
         cargarFacturas()
     }
 
-    val facturas: LiveData<List<Invoice>> = dataManager.invoices
-    val viewState: LiveData<InvoiceStateManager.ViewState> = stateManager.currentState
-    val filtrosActuales: LiveData<InvoiceFilters> = filterManager.currentFilters
+    // ========== MÉTODOS PÚBLICOS - CARGA DE DATOS ==========
 
-
-    val errorValidacion: LiveData<String?> = filterManager.validationError
-    val errorMessage: LiveData<String?> = stateManager.errorMessage
-    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
-
-
-
+    /**
+     * Carga facturas desde el repositorio.
+     * Delega al UseCase la obtención de datos.
+     */
     fun cargarFacturas() {
+        Logger.d(TAG, "[START] Loading invoices...")
         stateManager.showLoading()
 
-        // Lanzamos una corrutina en el scope del ViewModel
         viewModelScope.launch {
             try {
-                val result = dataManager.loadInvoices()
-                isFirstLoad = false
+                val result = getInvoicesUseCase()
+                Logger.d(TAG, "[SUCCESS] Received ${result.size} invoices")
+
+                originalInvoices = result
+
                 if (result.isEmpty()) {
+                    Logger.d(TAG, "[EMPTY] No invoices found")
                     stateManager.showEmpty()
                 } else {
-                    filterManager.resetFilters(result)
+                    initializeFilterState(result)
+                    _facturas.postValue(result)
                     stateManager.showData()
                 }
-
             } catch (e: Exception) {
-                // Cualquier error que caiga en onError del UseCase caerá aquí automáticamente
-                isFirstLoad = false
+                Logger.e(TAG, "[ERROR] Failed to load: ${e.message}", e)
                 handleLoadError(e)
             }
         }
     }
 
-    fun actualizarFiltros(filters: InvoiceFilters) {
-        filterManager.updateFilters(filters)
+    // ========== MÉTODOS PÚBLICOS - GESTIÓN DE FILTROS ==========
+
+    /**
+     * Actualiza los filtros sin aplicarlos inmediatamente.
+     * Normaliza automáticamente los filtros según reglas de negocio.
+     * Usado para cambios en tiempo real desde la UI (slider, checkboxes, etc.).
+     *
+     * @param filters Nuevos filtros a actualizar
+     */
+    fun updateFilters(filters: InvoiceFilters) {
+        // ✅ Normalizamos automáticamente (intercambia fechas/importes si es necesario)
+        val normalizedFilters = filters.normalize()
+
+        _filterUIState.value = _filterUIState.value?.copy(filters = normalizedFilters)
+
+        Logger.d(TAG, "[FILTER] Updated: dates=${normalizedFilters.startDate} to ${normalizedFilters.endDate}, amounts=${normalizedFilters.minAmount} to ${normalizedFilters.maxAmount}")
+    }
+
+    /**
+     * Aplica los filtros actuales a la lista de facturas.
+     * Llamado cuando el usuario presiona "Aplicar" en el FilterFragment.
+     */
+    fun applyFilters() {
+        Logger.d(TAG, "[FILTER] Applying filters...")
+
+        // Indicamos que estamos aplicando filtros
+        _filterUIState.value = _filterUIState.value?.copy(isApplying = true)
+
         stateManager.showLoading()
 
         viewModelScope.launch {
-            delay(300)
-            val filtered = withContext(Dispatchers.Default) {
-                // Procesamiento pesado en hilo de cómputo
-                filterManager.applyCurrentFilters(dataManager.originalInvoices)
-            }
+            delay(200) // UX: Pequeño delay para transición visual
+            aplicarFiltrosActuales()
 
-            dataManager.setInvoices(filtered)
-
-            if (filtered.isEmpty()) {
-                stateManager.showEmpty()
-            } else {
-                stateManager.showData()
-            }
+            // Finalizamos el estado de aplicación
+            _filterUIState.value = _filterUIState.value?.copy(isApplying = false)
         }
     }
 
+    /**
+     * Resetea todos los filtros y muestra la lista completa.
+     */
     fun resetearFiltros() {
-        val original = dataManager.originalInvoices
-        filterManager.resetFilters(original)
-        dataManager.setInvoices(original)
-        stateManager.showData()
-    }
+        Logger.d(TAG, "[FILTER] Resetting all filters")
 
-    fun actualizarEstadoFiltros(filters: InvoiceFilters) {
-        filterManager.updateFilters(filters)
-    }
-
-    // Delegación a StatisticsCalculator
-    fun getMaxImporte(): Float = statisticsCalculator.calculateMaxAmount(dataManager.originalInvoices)
-    fun getOldestDate(): LocalDate? = statisticsCalculator.calculateOldestDate(dataManager.originalInvoices)
-    fun getNewestDate(): LocalDate? = statisticsCalculator.calculateNewestDate(dataManager.originalInvoices)
-
-    fun hayDatosCargados(): Boolean = dataManager.originalInvoices.isNotEmpty()
-    fun hayFiltrosActivos(): Boolean = filterManager.hasActiveFilters()
-
-    private fun handleLoadError(error: Throwable) {
-        // Si hay caché, mostramos los datos y salimos
-        if (dataManager.hasCachedData()) {
+        if (originalInvoices.isNotEmpty()) {
+            initializeFilterState(originalInvoices)
+            _facturas.value = originalInvoices
             stateManager.showData()
+        }
+    }
+
+    // ========== MÉTODOS PÚBLICOS - CONSULTAS DE ESTADO ==========
+
+    /**
+     * Verifica si hay datos cargados.
+     * Usado para habilitar/deshabilitar el botón de filtros.
+     */
+    fun hayDatosCargados(): Boolean {
+        return originalInvoices.isNotEmpty()
+    }
+
+    /**
+     * Verifica si el estado actual es de error.
+     */
+    fun esEstadoError(): Boolean {
+        return stateManager.isError()
+    }
+
+    // ========== MÉTODOS PRIVADOS - LÓGICA INTERNA ==========
+
+    /**
+     * Inicializa el estado de filtros basándose en las estadísticas de las facturas.
+     * Usa extension functions para calcular estadísticas.
+     *
+     * @param invoices Lista de facturas para calcular estadísticas
+     */
+    private fun initializeFilterState(invoices: List<Invoice>) {
+        // ✅ Usamos extension functions en lugar de Calculator
+        val maxAmount = invoices.maxAmount()
+        val oldestDate = invoices.oldestDate()
+        val newestDate = invoices.newestDate()
+
+        Logger.d(TAG, "[STATS] Max: $maxAmount, Range: $oldestDate to $newestDate")
+
+        // Creamos el estado inicial de filtros
+        _filterUIState.value = InvoiceFilterUIState(
+            filters = InvoiceFilters(
+                minAmount = 0f,
+                maxAmount = maxAmount,
+                startDate = null,
+                endDate = null,
+                filteredStates = emptySet()
+            ),
+            statistics = InvoiceFilterUIState.FilterStatistics(
+                maxAmount = maxAmount,
+                oldestDateMillis = DateUtils.toEpochMilli(oldestDate),
+                newestDateMillis = DateUtils.toEpochMilli(newestDate)
+            ),
+            isApplying = false
+        )
+    }
+
+    /**
+     * Aplica los filtros actuales a la lista de facturas.
+     * Delega la lógica de filtrado al UseCase de dominio.
+     */
+    private suspend fun aplicarFiltrosActuales() {
+        if (originalInvoices.isEmpty()) {
+            Logger.d(TAG, "[FILTER] No data to filter")
             return
         }
 
-        // Clasificamos el error (ahora devuelve una sealed class)
-        when (val errorType = ErrorClassifier.classify(error)) {
-            is ErrorClassifier.ErrorType.Network -> {
-                viewModelScope.launch {
-                    delay(3000) // Delay antes de mostrar el error de red
-                    stateManager.showNetworkError(errorType.toUserMessage())
-                }
-            }
+        val filteredList = withContext(Dispatchers.Default) {
+            val currentFilters = _filterUIState.value?.filters
 
-            is ErrorClassifier.ErrorType.Server -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            is ErrorClassifier.ErrorType.Unknown -> {
-                stateManager.showServerError(errorType.toUserMessage())
+            if (currentFilters == null) {
+                Logger.d(TAG, "[FILTER] No filters applied, returning all data")
+                originalInvoices
+            } else {
+                val result = filterInvoicesUseCase(
+                    invoices = originalInvoices,
+                    filters = currentFilters
+                )
+                Logger.d(TAG, "[FILTER] Applied: ${result.size}/${originalInvoices.size} invoices match")
+                result
             }
         }
+
+        _facturas.value = filteredList
+        stateManager.showData()
     }
 
-
-
-    fun aplicarFiltrosSeleccionados(estados: List<String>, min: Double, max: Double) {
-
-        // Obtenemos el filtro actual o creamos uno nuevo
-        val filtroActual = filtrosActuales.value ?: InvoiceFilters()
-
-        // CAMBIO 3: Usamos copy() para crear una nueva instancia inmutable
-        // en lugar de reasignar propiedades con setters (nuevosFiltros.minAmount = ...)
-        val nuevosFiltros = filtroActual.copy(
-            filteredStates = estados.toSet(), // Convertimos List -> Set
-            minAmount = min.toFloat(),        // Convertimos Double -> Float
-            maxAmount = max.toFloat()         // Convertimos Double -> Float
-        )
-
-        // Delegamos al manager
-        filterManager.updateFilters(nuevosFiltros)
-
-        // Ejecutamos el filtrado
-        actualizarFiltros(nuevosFiltros)
+    /**
+     * Maneja errores de carga clasificándolos y actualizando el estado.
+     *
+     * @param error Excepción capturada durante la carga
+     */
+    private fun handleLoadError(error: Throwable) {
+        val errorType = ErrorClassifier.classify(error)
+        Logger.e(TAG, "[ERROR] Classified as: ${errorType.javaClass.simpleName}")
+        stateManager.showError(errorType)
     }
-
-    fun getOldestDateMillis(): Long {
-        val date = this.getOldestDate()
-        return DateUtils.toEpochMilli(date)
-    }
-
-    fun getNewestDateMillis(): Long {
-        val date = this.getNewestDate()
-        return DateUtils.toEpochMilli(date)
-    }
-
-    fun esEstadoError() = stateManager.isError()
 }
