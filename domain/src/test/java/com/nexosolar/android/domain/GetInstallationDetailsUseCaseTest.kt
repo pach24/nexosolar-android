@@ -92,23 +92,24 @@ class GetInstallationDetailsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Repositorio retorna instalación con campos nulos es válido")
-    fun `when repository returns installation with null fields is valid`() = runTest {
-        // GIVEN: Instalación con algunos campos null
-        val installationWithNulls = Installation().apply {
+    @DisplayName("Repositorio retorna instalación con campos vacíos es válido")
+    fun `when repository returns installation with empty fields is valid`() = runTest {
+        // GIVEN: Instalación con solo el CAU, el resto por defecto ("")
+        val installationPartial = Installation(
             selfConsumptionCode = "ES123"
-            // Resto de campos null
-        }
-        `when`(mockRepository.getInstallationDetails()).thenReturn(installationWithNulls)
+            // El resto usa los valores por defecto definidos en el data class
+        )
+
+        `when`(mockRepository.getInstallationDetails()).thenReturn(installationPartial)
 
         // WHEN: Invocamos el use case
         val result = useCase()
 
-        // THEN: Acepta instalaciones con campos null
+        // THEN: Verifica
         assertNotNull(result)
         assertEquals("ES123", result.selfConsumptionCode)
-        assertNull(result.installationStatus)
-        assertNull(result.compensation)
+        assertEquals("", result.installationStatus) // Ahora es string vacío, no null
+        assertEquals("", result.compensation)
     }
 
     // ========== Métodos auxiliares ==========
@@ -117,10 +118,11 @@ class GetInstallationDetailsUseCaseTest {
      * Crea una instalación mock completa para pruebas.
      */
     private fun createMockInstallation(): Installation {
+
         return Installation(
-            cau = "ES0021000000000001JN",
-            status = "Activa",
-            type = "Residencial",
+            selfConsumptionCode = "ES0021000000000001JN",
+            installationStatus = "Activa",
+            installationType = "Residencial",
             compensation = "Con compensación",
             power = "5.5 kW"
         )
