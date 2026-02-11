@@ -1,10 +1,10 @@
+// ui/invoices/FilterFragment.kt
 package com.nexosolar.android.ui.invoices
 
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.google.android.material.datepicker.CalendarConstraints
@@ -18,6 +18,14 @@ import com.nexosolar.android.ui.common.RangeValidator
 import java.time.Instant
 import java.time.ZoneOffset
 
+/**
+ * Fragment para configurar filtros de facturas.
+ *
+ * Responsabilidades:
+ * - Renderizar UI según el estado del ViewModel
+ * - Capturar interacciones del usuario
+ * - Mantener estado temporal local hasta presionar "Aplicar"
+ */
 class FilterFragment : Fragment() {
 
     private var _binding: FragmentFilterBinding? = null
@@ -25,8 +33,16 @@ class FilterFragment : Fragment() {
 
     private val viewModel: InvoiceViewModel by activityViewModels()
 
+    /**
+     * Estado temporal de filtros editados por el usuario.
+     * Solo afecta al ViewModel al presionar "Aplicar".
+     */
+    private var tempFilters: InvoiceFilters? = null
+
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
     ): View {
         _binding = FragmentFilterBinding.inflate(inflater, container, false)
         return binding.root
@@ -38,198 +54,212 @@ class FilterFragment : Fragment() {
         setupListeners()
     }
 
-    private fun setupObservers() {
-        viewModel.filtrosActuales.observe(viewLifecycleOwner) { actualizarUI(it) }
+    // ========== OBSERVERS ==========
 
+    private fun setupObservers() {
+        viewModel.filterUIState.observe(viewLifecycleOwner) { uiState ->
+            tempFilters = uiState.filters
+            renderUI(uiState)
+        }
     }
+
+    // ========== LISTENERS ==========
 
     private fun setupListeners() {
         with(binding) {
-            btnSelectDate.setOnClickListener { abrirDatePicker(true) }
-            btnSelectDateUntil.setOnClickListener { abrirDatePicker(false) }
+            btnSelectDate.setOnClickListener { showDatePicker(isStartDate = true) }
+            btnSelectDateUntil.setOnClickListener { showDatePicker(isStartDate = false) }
 
             rangeSlider.addOnChangeListener { slider, _, _ ->
-                val values = slider.values
-                if (values.size == 2) {
-                    val min = values[0]
-                    val max = values[1]
-                    tvMinValue.text = String.format("%.0f €", min)
-
-                    val maxTotal = viewModel.getMaxImporte()
-                    tvMaxValue.text = if (max >= maxTotal - 0.001f) {
-                        String.format("%.2f €", max)
-                    } else {
-                        String.format("%.0f €", max)
-                    }
-                }
+                handleSliderChange(slider.values)
             }
 
-            // Mapeo de Checkboxes con Enum
-            val checks = listOf(
-                checkPagadas to InvoiceState.PAID,
-                checkPendientesPago to InvoiceState.PENDING,
-                checkAnuladas to InvoiceState.CANCELLED,
-                checkCuotaFija to InvoiceState.FIXED_FEE,
-                checkPlanPago to InvoiceState.PAYMENT_PLAN
-            )
+            setupStateCheckboxes()
 
-            checks.forEach { (view, state) ->
-                view.setOnCheckedChangeListener { _, isChecked ->
-                    // Pasamos el estado al método de actualización
-                    actualizarEstadoCheckbox(state.serverValue, isChecked)
-                }
-            }
-
-            btnAplicar.setOnClickListener { aplicarFiltros() }
+            btnAplicar.setOnClickListener { applyFilters() }
             btnBorrar.setOnClickListener { viewModel.resetearFiltros() }
-            btnCerrar.setOnClickListener { cerrarFragmento() }
+            btnCerrar.setOnClickListener { closeFragment() }
         }
     }
 
-    private fun actualizarUI(filtros: InvoiceFilters?) {
-        filtros ?: return
+    private fun setupStateCheckboxes() {
+        val checkboxMapping = mapOf(
+            binding.checkPagadas to InvoiceState.PAID,
+            binding.checkPendientesPago to InvoiceState.PENDING,
+            binding.checkAnuladas to InvoiceState.CANCELLED,
+            binding.checkCuotaFija to InvoiceState.FIXED_FEE,
+            binding.checkPlanPago to InvoiceState.PAYMENT_PLAN
+        )
+
+        checkboxMapping.forEach { (checkbox, state) ->
+            checkbox.setOnCheckedChangeListener { _, isChecked ->
+                handleStateToggle(state, isChecked)
+            }
+        }
+    }
+
+    // ========== UI RENDERING ==========
+
+    private fun renderUI(uiState:InvoiceFilterUIState) {
+        with(binding) {
+            renderDateButtons(uiState.filters)
+
+            if (uiState.statistics.maxAmount > 0) {
+                renderSlider(uiState)
+            }
+
+            renderStateCheckboxes(uiState.filters)
+
+            btnAplicar.isEnabled = !uiState.isApplying
+        }
+    }
+
+    private fun renderDateButtons(filters: InvoiceFilters) {
+        binding.btnSelectDate.text = filters.startDate?.let {
+            DateUtils.formatDateShort(it)
+        } ?: getString(R.string.dia_mes_ano)
+
+        binding.btnSelectDateUntil.text = filters.endDate?.let {
+            DateUtils.formatDateShort(it)
+        } ?: getString(R.string.dia_mes_ano)
+    }
+
+    private fun renderSlider(uiState: InvoiceFilterUIState) {
+        val filters = uiState.filters
+        val maxAmount = uiState.statistics.maxAmount
+
+        with(binding.rangeSlider) {
+            valueFrom = 0f
+            valueTo = maxAmount
+
+            val minVal = (filters.minAmount ?: 0f).coerceIn(0f, maxAmount)
+            val maxVal = (filters.maxAmount ?: maxAmount).coerceIn(minVal, maxAmount)
+
+            setValues(minVal, maxVal)
+        }
+
+        // Actualizar etiquetas
+        binding.tvMaxImporte.text = String.format("%.2f €", maxAmount)
+        binding.tvMinValue.text = formatSliderValue(filters.minAmount ?: 0f, maxAmount, isMaxValue = false)
+        binding.tvMaxValue.text = formatSliderValue(filters.maxAmount ?: maxAmount, maxAmount, isMaxValue = true)
+    }
+
+    private fun renderStateCheckboxes(filters: InvoiceFilters) {
+        val states = filters.filteredStates
 
         with(binding) {
-            // --- FECHAS ---
-            btnSelectDate.text = filtros.startDate?.let {
-                DateUtils.formatDateShort(it)
-            } ?: getString(R.string.dia_mes_ano)
-
-            btnSelectDateUntil.text = filtros.endDate?.let {
-                DateUtils.formatDateShort(it)
-            } ?: getString(R.string.dia_mes_ano)
-
-            // --- SLIDER ---
-            val maxImporteData = viewModel.getMaxImporte()
-
-            if (maxImporteData > 0) {
-                rangeSlider.valueFrom = 0f
-                rangeSlider.valueTo = maxImporteData
-
-                // Convertimos Float? -> Float con seguridad y control de límites
-                val minVal = (filtros.minAmount ?: 0f).coerceIn(0f, maxImporteData)
-                // Capturamos el valor en una variable local inmutable (val)
-                // Al ser local, Kotlin sí puede hacer smart cast
-                val currentMax = filtros.maxAmount
-                val maxVal = if (currentMax == null || currentMax == 0f) {
-                    maxImporteData
-                } else {
-                    currentMax.coerceIn(minVal, maxImporteData)
-                }
-
-
-                // Importante: setValues espera Floats
-                rangeSlider.setValues(minVal, maxVal)
-
-                tvMaxImporte.text = String.format("%.2f €", maxImporteData)
-                tvMinValue.text = String.format("%.0f €", minVal)
-                tvMaxValue.text = String.format("%.0f €", maxVal)
-            }
-
-            // --- CHECKBOXES ---
-            val estados = filtros.filteredStates
-            checkPagadas.isChecked = estados.contains(InvoiceState.PAID.serverValue)
-            checkPendientesPago.isChecked = estados.contains(InvoiceState.PENDING.serverValue)
-            checkAnuladas.isChecked = estados.contains(InvoiceState.CANCELLED.serverValue)
-            checkCuotaFija.isChecked = estados.contains(InvoiceState.FIXED_FEE.serverValue)
-            checkPlanPago.isChecked = estados.contains(InvoiceState.PAYMENT_PLAN.serverValue)
+            checkPagadas.isChecked = states.contains(InvoiceState.PAID.serverValue)
+            checkPendientesPago.isChecked = states.contains(InvoiceState.PENDING.serverValue)
+            checkAnuladas.isChecked = states.contains(InvoiceState.CANCELLED.serverValue)
+            checkCuotaFija.isChecked = states.contains(InvoiceState.FIXED_FEE.serverValue)
+            checkPlanPago.isChecked = states.contains(InvoiceState.PAYMENT_PLAN.serverValue)
         }
     }
 
-    private fun aplicarFiltros() {
-        val filtros = viewModel.filtrosActuales.value ?: return
+    // ========== EVENT HANDLERS ==========
 
-        // Obtenemos valores UI del slider
-        val min = binding.rangeSlider.values[0] // Ya es float
-        val max = binding.rangeSlider.values[1]
+    private fun handleSliderChange(values: List<Float>) {
+        if (values.size != 2) return
 
-        // Creamos una COPIA del filtro actual actualizando solo el rango
-        val nuevosFiltros = filtros.copy(
-            minAmount = min,
-            maxAmount = max
-        )
+        val min = values[0]
+        val max = values[1]
 
-        // Enviamos el objeto completo (inmutable) al ViewModel
-        viewModel.actualizarFiltros(nuevosFiltros)
+        tempFilters = tempFilters?.copy(minAmount = min, maxAmount = max)
 
-        cerrarFragmento()
+        // Feedback visual inmediato
+        val maxAmount = viewModel.filterUIState.value?.statistics?.maxAmount ?: max
+        binding.tvMinValue.text = formatSliderValue(min, maxAmount, isMaxValue = false)
+        binding.tvMaxValue.text = formatSliderValue(max, maxAmount, isMaxValue = true)
     }
 
-    private fun actualizarEstadoCheckbox(estado: String, isChecked: Boolean) {
-        val filtros = viewModel.filtrosActuales.value ?: return
-
-        // 1. Convertimos Set inmutable a MutableSet para operar
-        val nuevosEstados = filtros.filteredStates.toMutableSet()
+    private fun handleStateToggle(state: InvoiceState, isChecked: Boolean) {
+        val currentStates = tempFilters?.filteredStates?.toMutableSet() ?: mutableSetOf()
 
         if (isChecked) {
-            nuevosEstados.add(estado)
+            currentStates.add(state.serverValue)
         } else {
-            nuevosEstados.remove(estado)
+            currentStates.remove(state.serverValue)
         }
 
-        // 2. Creamos copia del filtro con el nuevo Set y valores actuales del slider
-        val nuevosFiltros = filtros.copy(
-            filteredStates = nuevosEstados, // Se vuelve Set automáticamente
-            minAmount = binding.rangeSlider.values[0],
-            maxAmount = binding.rangeSlider.values[1]
-        )
-
-        viewModel.actualizarEstadoFiltros(nuevosFiltros)
+        tempFilters = tempFilters?.copy(filteredStates = currentStates)
     }
 
-    private fun abrirDatePicker(esInicio: Boolean) {
-        val current = viewModel.filtrosActuales.value
-        val minGlobal = viewModel.getOldestDateMillis()
-        val maxGlobal = viewModel.getNewestDateMillis()
+    private fun showDatePicker(isStartDate: Boolean) {
+        val uiState = viewModel.filterUIState.value ?: return
 
-        // Lógica de validación (se mantiene igual, solo cambia el acceso a propiedades)
-        val validacionMin = if (esInicio) {
-            minGlobal
+        val (validationMin, validationMax) = if (isStartDate) {
+            uiState.getStartDateConstraints()
         } else {
-            DateUtils.toEpochMilli(current?.startDate).takeIf { it != 0L } ?: minGlobal
+            uiState.getEndDateConstraints()
         }
 
-        val validacionMax = if (!esInicio) {
-            maxGlobal
+        val initialSelection = if (isStartDate) {
+            uiState.getStartDateInitialSelection()
         } else {
-            DateUtils.toEpochMilli(current?.endDate).takeIf { it != 0L } ?: maxGlobal
+            uiState.getEndDateInitialSelection()
         }
 
         val constraints = CalendarConstraints.Builder()
-            .setStart(minGlobal)
-            .setEnd(maxGlobal)
-            .setValidator(RangeValidator(validacionMin, validacionMax))
+            .setStart(uiState.statistics.oldestDateMillis)
+            .setEnd(uiState.statistics.newestDateMillis)
+            .setValidator(RangeValidator(validationMin, validationMax))
             .build()
 
         val picker = MaterialDatePicker.Builder.datePicker()
-            .setTitleText(if (esInicio) "Seleccionar Inicio" else "Seleccionar Fin")
+            .setTitleText(if (isStartDate) "Seleccionar Inicio" else "Seleccionar Fin")
             .setCalendarConstraints(constraints)
-            .setSelection(if (esInicio) validacionMin else validacionMax)
+            .setSelection(initialSelection)
             .build()
 
         picker.addOnPositiveButtonClickListener { selectedMillis ->
-            val nuevaFecha = Instant.ofEpochMilli(selectedMillis)
-                .atZone(ZoneOffset.UTC)
-                .toLocalDate()
-
-            // Creamos COPIA con copy() en lugar de modificar campos
-            val nuevosFiltros = (current ?: InvoiceFilters()).copy(
-                startDate = if (esInicio) nuevaFecha else current?.startDate,
-                endDate = if (!esInicio) nuevaFecha else current?.endDate,
-                // Mantenemos importes actuales para no resetear slider si el usuario lo movió
-                minAmount = binding.rangeSlider.values[0],
-                maxAmount = binding.rangeSlider.values[1]
-            )
-
-            viewModel.actualizarEstadoFiltros(nuevosFiltros)
+            handleDateSelected(selectedMillis, isStartDate)
         }
 
         picker.show(parentFragmentManager, "DATE_PICKER")
     }
 
-    private fun cerrarFragmento() {
+    private fun handleDateSelected(dateMillis: Long, isStartDate: Boolean) {
+        val selectedDate = Instant.ofEpochMilli(dateMillis)
+            .atZone(ZoneOffset.UTC)
+            .toLocalDate()
+
+        tempFilters = if (isStartDate) {
+            tempFilters?.copy(startDate = selectedDate)
+        } else {
+            tempFilters?.copy(endDate = selectedDate)
+        }
+
+        tempFilters?.let { renderDateButtons(it) }
+    }
+
+    private fun applyFilters() {
+        tempFilters?.let { filters ->
+            viewModel.updateFilters(filters)
+            viewModel.applyFilters()
+        }
+
+        closeFragment()
+    }
+
+    private fun closeFragment() {
         parentFragmentManager.popBackStack()
     }
+
+    // ========== HELPERS ==========
+
+    /**
+     * Formatea el valor del slider para mostrar.
+     * Si es el valor máximo y coincide con el límite, muestra decimales.
+     */
+    private fun formatSliderValue(value: Float, maxValue: Float, isMaxValue: Boolean): String {
+        return if (isMaxValue && value >= maxValue - 0.001f) {
+            String.format("%.2f €", value)
+        } else {
+            String.format("%.0f €", value)
+        }
+    }
+
+    // ========== LIFECYCLE ==========
 
     override fun onDestroyView() {
         super.onDestroyView()
