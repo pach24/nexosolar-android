@@ -26,4 +26,6 @@ class InvoiceRemoteDataSourceImpl(
         val response = apiService.getFacturas()  // ⚡ Llamada directa
         return mapper.toEntityListFromDto(response.facturas?.filterNotNull())
     }
+
+
 }

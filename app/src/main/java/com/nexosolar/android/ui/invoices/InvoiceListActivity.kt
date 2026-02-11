@@ -1,7 +1,6 @@
 package com.nexosolar.android.ui.invoices
 
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -10,23 +9,31 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
+import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.databinding.ActivityInvoiceListBinding
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
-import com.nexosolar.android.ui.invoices.managers.InvoiceStateManager
+import kotlinx.coroutines.launch
 
+/**
+ * Activity principal de listado de facturas.
+ * MIGRADO A FLOW: Consume el estado unificado InvoiceUiState.
+ */
 class InvoiceListActivity : AppCompatActivity() {
-
 
     private lateinit var binding: ActivityInvoiceListBinding
     private lateinit var adapter: InvoiceAdapter
 
-
+    // ViewModel Factory manual para inyectar dependencias
     private val invoiceViewModel: InvoiceViewModel by viewModels {
         val app = application as NexoSolarApplication
+        // Nota: Asegúrate de que provideInvoiceRepository() devuelve el Repo actualizado
         val repository = app.dataModule.provideInvoiceRepository()
         InvoiceViewModelFactory(GetInvoicesUseCase(repository), FilterInvoicesUseCase())
     }
@@ -42,18 +49,16 @@ class InvoiceListActivity : AppCompatActivity() {
         setupListeners()
         setupBackPressHandler()
 
-        // --- NUEVO: ESCUCHA AUTOMÁTICA DE CAMBIOS ---
+        // Listener para restaurar UI al cerrar filtros
         supportFragmentManager.addOnBackStackChangedListener {
-            // Verificamos si el fragmento sigue existiendo y siendo visible
-            val fragment = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")
-            val isFiltering = fragment != null && fragment.isVisible
-
-            // 1. Controlamos visibilidad de contenedores
+            val isFiltering = isFilteringActive()
             binding.toolbar.isVisible = !isFiltering
             binding.fragmentContainer.isVisible = isFiltering
 
-            // 2. Actualizamos la lista (para que reaparezca si cerramos el filtro)
-            actualizarEstadoUI()
+            // Si cerramos el filtro, re-renderizamos el estado actual
+            if (!isFiltering) {
+                renderCurrentState()
+            }
         }
     }
 
@@ -62,114 +67,145 @@ class InvoiceListActivity : AppCompatActivity() {
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@InvoiceListActivity)
             adapter = this@InvoiceListActivity.adapter
-            //itemAnimator = null
         }
     }
+
+    // ========== OBSERVERS (MIGRADO A FLOW) ==========
 
     private fun setupObservers() {
-        invoiceViewModel.facturas.observe(this) { facturas ->
-            adapter.submitList(facturas)
-            actualizarEstadoUI()
+        lifecycleScope.launch {
+            // repeatOnLifecycle suspende la ejecución cuando la app va a background
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-
+                // Observamos el estado unificado UI
+                invoiceViewModel.uiState.collect { state ->
+                    renderUiState(state)
+                }
+            }
         }
-
-        invoiceViewModel.viewState.observe(this) { actualizarEstadoUI() }
-
-        invoiceViewModel.showEmptyError.observe(this) { actualizarEstadoUI() }
     }
 
-    private fun setupListeners() {
-        binding.btnRetry.setOnClickListener { invoiceViewModel.cargarFacturas() }
-        binding.btnVolver.setOnClickListener { finish() }
-    }
+    // ========== UI RENDERING ==========
 
-    private fun actualizarEstadoUI() {
-        val state = invoiceViewModel.viewState.value ?: return
-        val facturas = invoiceViewModel.facturas.value
-        val isError = invoiceViewModel.esEstadoError() && invoiceViewModel.showEmptyError.value == true
-        val isFiltering = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")?.isVisible == true
+    private fun renderUiState(state: InvoiceUIState) {
+        // Si hay filtro activo, no tocamos nada para evitar glitches visuales
+        if (isFilteringActive()) return
 
-        // 1. Manejo del Shimmer
-        if (state == InvoiceStateManager.ViewState.LOADING) {
-            mostrarShimmer()
-            return
-        }
+        // 1. Resetear visibilidades (ocultar todo por defecto)
         ocultarShimmer()
+        binding.layoutErrorState.isVisible = false
+        binding.layoutEmptyState.isVisible = false
+        binding.recyclerView.isVisible = false
 
-        // 2. Visibilidad Atómica (Si estamos filtrando, el fragment manda sobre el resto)
-        binding.fragmentContainer.isVisible = isFiltering
-        binding.recyclerView.isVisible = !isError && !facturas.isNullOrEmpty() && !isFiltering
-        binding.layoutErrorState.isVisible = isError && !isFiltering
-        binding.layoutEmptyState.isVisible = !isError && facturas.isNullOrEmpty() && !isFiltering
+        // 2. Activar lo que corresponda
+        when (state) {
+            is InvoiceUIState.Loading -> {
+                mostrarShimmer()
+            }
+            is InvoiceUIState.Success -> {
+                binding.recyclerView.isVisible = true
+                adapter.submitList(state.invoices)
+            }
+            is InvoiceUIState.Empty -> {
+                binding.layoutEmptyState.isVisible = true
+                adapter.submitList(emptyList())
+            }
+            is InvoiceUIState.Error -> {
+                configurarVistaError(state.type)
+                binding.layoutErrorState.isVisible = true
+            }
+        }
 
-        // 3. Configuración extra
-        if (isError) configurarVistaError(state)
-
+        // Actualizar menú (para habilitar/deshabilitar botón de filtro)
         invalidateOptionsMenu()
     }
 
-    private fun mostrarShimmer() {
-        with(binding) {
-            layoutErrorState.visibility = View.GONE
-            layoutEmptyState.visibility = View.GONE
-            fragmentContainer.visibility = View.GONE
-            recyclerView.visibility = View.GONE
 
-            shimmerViewContainer.visibility = View.VISIBLE
-            shimmerViewContainer.startShimmer()
-        }
+
+    /**
+     * Helper para re-renderizar el último estado conocido.
+     * Útil al volver del fragmento de filtros.
+     */
+    private fun renderCurrentState() {
+        renderUiState(invoiceViewModel.uiState.value)
+    }
+
+    private fun mostrarShimmer() {
+        binding.shimmerViewContainer.isVisible = true
+        binding.shimmerViewContainer.startShimmer()
     }
 
     private fun ocultarShimmer() {
         binding.shimmerViewContainer.stopShimmer()
-        binding.shimmerViewContainer.visibility = View.GONE
+        binding.shimmerViewContainer.isVisible = false
     }
 
-    private fun mostrarError(tipo: InvoiceStateManager.ViewState) {
-        configurarVistaError(tipo)
-        with(binding) {
-            layoutErrorState.visibility = View.VISIBLE
-            recyclerView.visibility = View.GONE
-            layoutEmptyState.visibility = View.GONE
+    private fun configurarVistaError(type: ErrorClassifier.ErrorType) {
+        val isNetworkError = type is ErrorClassifier.ErrorType.Network
+        binding.ivError.setImageResource(
+            if (isNetworkError) R.drawable.ic_wifi_off_24 else R.drawable.ic_server_off_24
+        )
+        binding.tvError.setText(
+            if (isNetworkError) R.string.error_conexion else R.string.error_conexion_servidor
+        )
+        binding.tvErrorDescription.setText(
+            if (isNetworkError) R.string.error_conexion_description_message else R.string.error_conexion_servidor_description_message
+        )
+    }
+
+    // ========== LISTENERS & INTERACTIONS ==========
+
+    private fun setupListeners() {
+        // Nota: cargarFacturas() ya no existe como tal en VM reactivo,
+        // pero puedes crear refresh() o simplemente volver a observar si fuera manual.
+        // Asumiendo que has creado un método refresh() en VM que llama a repo.refreshInvoices()
+        binding.btnRetry.setOnClickListener {
+            // Opción A: Relanzar observación (simple)
+            // Opción B: Llamar a método refresh explícito
+            invoiceViewModel.refresh()
         }
+        binding.btnVolver.setOnClickListener { finish() }
     }
 
-    private fun configurarVistaError(tipo: InvoiceStateManager.ViewState) {
-        val isNetworkError = tipo == InvoiceStateManager.ViewState.ERROR_NETWORK
-        binding.ivError.setImageResource(if (isNetworkError) R.drawable.ic_wifi_off_24 else R.drawable.ic_server_off_24)
-        binding.tvError.setText(if (isNetworkError) R.string.error_conexion else R.string.error_conexion_servidor)
-        binding.tvErrorDescription.setText(if (isNetworkError) R.string.error_conexion_description_message else R.string.error_conexion_servidor_description_message)
+    private fun setupBackPressHandler() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (isFilteringActive()) {
+                    supportFragmentManager.popBackStack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
     }
 
-
-    private fun mostrarLista() {
-        binding.recyclerView.visibility = View.VISIBLE
-        binding.layoutErrorState.visibility = View.GONE
-        binding.layoutEmptyState.visibility = View.GONE
+    private fun isFilteringActive(): Boolean {
+        val fragment = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")
+        return fragment != null && fragment.isVisible
     }
 
-    private fun mostrarEmptyState() {
-        binding.layoutEmptyState.visibility = View.VISIBLE
-        binding.recyclerView.visibility = View.GONE
-        binding.layoutErrorState.visibility = View.GONE
-    }
+    // ========== MENU ==========
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_filter, menu)
         val filtroItem = menu.findItem(R.id.action_filters)
 
-        val state = invoiceViewModel.viewState.value
-        val hasData = invoiceViewModel.hayDatosCargados()
-        val isNotLoading = state != InvoiceStateManager.ViewState.LOADING
+        val currentState = invoiceViewModel.uiState.value
 
-        filtroItem.isEnabled = hasData && isNotLoading
+        val canFilter = currentState is InvoiceUIState.Success
+        // || currentState is InvoiceUIState.Empty (si quisieras permitir filtro en vacío)
+
+        filtroItem.isEnabled = canFilter
         return true
     }
 
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.action_filters) {
-            if (invoiceViewModel.hayDatosCargados()) {
+            val currentState = invoiceViewModel.uiState.value
+
+            if (currentState is InvoiceUIState.Success) {
                 mostrarFiltroFragment()
             } else {
                 Toast.makeText(this, R.string.no_data_to_filter, Toast.LENGTH_SHORT).show()
@@ -179,35 +215,15 @@ class InvoiceListActivity : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
+
     private fun mostrarFiltroFragment() {
-        binding.fragmentContainer.visibility = View.VISIBLE
-        binding.toolbar.visibility = View.GONE
+        binding.fragmentContainer.isVisible = true
+        binding.toolbar.isVisible = false
 
         supportFragmentManager.beginTransaction()
             .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
             .replace(R.id.fragment_container, FilterFragment(), "FILTRO_FRAGMENT")
             .addToBackStack(null)
             .commit()
-    }
-
-    fun restoreMainView() {
-        binding.toolbar.visibility = View.VISIBLE
-        binding.fragmentContainer.visibility = View.GONE
-        actualizarEstadoUI()
-    }
-
-    private fun setupBackPressHandler() {
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                val filterFragment = supportFragmentManager.findFragmentByTag("FILTRO_FRAGMENT")
-                if (filterFragment != null && filterFragment.isVisible) {
-                    // restoreMainView()  <-- BORRAR ESTA LÍNEA
-                    supportFragmentManager.popBackStack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
-            }
-        })
     }
 }
