@@ -8,40 +8,34 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.Toast
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
+import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.databinding.FragmentDetailsBinding
-import com.nexosolar.android.ui.smartsolar.managers.InstallationStateManager
+import com.nexosolar.android.domain.models.Installation
+import kotlinx.coroutines.launch
 
-/**
- * Fragment que muestra información detallada de la instalación solar.
- * Responsabilidades:
- * - Consumir datos del ViewModel mediante LiveData
- * - Gestionar estados de carga con Shimmer
- * - Mostrar diálogo informativo sobre los detalles de la instalación
- */
 class DetailsFragment : Fragment() {
-
-    // ===== Variables de instancia =====
 
     private var _binding: FragmentDetailsBinding? = null
     private val binding get() = _binding!!
 
+    // Usamos el ViewModel compartido (Activity Scoped)
     private val viewModel: InstallationViewModel by activityViewModels {
         val app = requireActivity().application as NexoSolarApplication
         val repository = app.dataModule.provideInstallationRepository()
         InstallationViewModelFactory(repository)
     }
 
-    // ===== Métodos del ciclo de vida =====
-
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentDetailsBinding.inflate(inflater, container, false)
         return binding.root
@@ -49,10 +43,8 @@ class DetailsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        setupUI()
         setupObservers()
-        loadDataIfNeeded()
-        setupInfoButton()
     }
 
     override fun onDestroyView() {
@@ -60,83 +52,123 @@ class DetailsFragment : Fragment() {
         _binding = null
     }
 
-    // ===== Métodos privados =====
+    // =========================================================================
+    // CONFIGURACIÓN UI
+    // =========================================================================
 
-    /**
-     * Configura los observadores de LiveData del ViewModel.
-     */
-    private fun setupObservers() {
-        observeLoadingState()
-        observeInstallationData()
-        observeErrors()
-    }
-
-    /**
-     * Observa el estado de carga para mostrar/ocultar el efecto Shimmer.
-     */
-    private fun observeLoadingState() {
-        viewModel.viewState.observe(viewLifecycleOwner) { state ->
-            val isLoading = state == InstallationStateManager.ViewState.LOADING
-
-            if (isLoading) {
-                binding.shimmerViewContainer.startShimmer()
-                binding.shimmerViewContainer.visibility = View.VISIBLE
-                binding.contentLayout.visibility = View.GONE
-            } else {
-                binding.shimmerViewContainer.stopShimmer()
-                binding.shimmerViewContainer.visibility = View.GONE
-                binding.contentLayout.visibility = View.VISIBLE
-            }
-        }
-    }
-
-    /**
-     * Observa los datos de instalación y actualiza la UI cuando están disponibles.
-     */
-    private fun observeInstallationData() {
-        viewModel.installation.observe(viewLifecycleOwner) { installation ->
-            installation?.let {
-                binding.tvCau.text = it.selfConsumptionCode
-                binding.tvStatus.text = it.installationStatus
-                binding.tvType.text = it.installationType
-                binding.tvCompensation.text = it.compensation
-                binding.tvPower.text = it.power
-            }
-        }
-    }
-
-    /**
-     * Observa errores del ViewModel y notifica al usuario.
-     */
-    private fun observeErrors() {
-        viewModel.errorMessage.observe(viewLifecycleOwner) { error ->
-            error?.let {
-                Toast.makeText(context, "Error: $it", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    /**
-     * Solicita la carga de datos solo si no están previamente disponibles.
-     * Evita recargas innecesarias durante rotaciones de pantalla.
-     */
-    private fun loadDataIfNeeded() {
-        if (viewModel.installation.value == null) {
-            viewModel.loadInstallationDetails()
-        }
-    }
-
-    /**
-     * Configura el listener del botón de información.
-     */
-    private fun setupInfoButton() {
+    private fun setupUI() {
         binding.ivInfo.setOnClickListener { showInfoDialog() }
+
+        binding.swipeRefresh.setOnRefreshListener {
+            viewModel.onRefresh()
+        }
+
+        binding.errorView.btnRetry.setOnClickListener {
+            // Aquí forzamos estado Loading visual para feedback inmediato al pulsar botón
+            // (El viewModel luego decidirá si hace soft o hard refresh, pero visualmente ayuda)
+            renderState(InstallationUIState.Loading)
+            viewModel.onRefresh()
+        }
     }
 
-    /**
-     * Muestra un diálogo modal con información adicional sobre los detalles mostrados.
-     * Configura fondo transparente para respetar las esquinas redondeadas del diseño.
-     */
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    renderState(state)
+                }
+            }
+        }
+    }
+
+
+    private fun renderState(state: InstallationUIState) {
+
+
+        val isLoading = state is InstallationUIState.Loading
+        val isError = state is InstallationUIState.Error
+        val isSuccess = state is InstallationUIState.Success
+        val isEmpty = state is InstallationUIState.Empty
+
+        // 1. Visibilidad de contenedores principales
+        binding.shimmerViewContainer.isVisible = isLoading
+        binding.errorView.root.isVisible = isError
+        binding.contentLayout.isVisible = isSuccess
+
+        // Control del Shimmer
+        if (isLoading) {
+            binding.shimmerViewContainer.startShimmer()
+        } else {
+            binding.shimmerViewContainer.stopShimmer()
+        }
+
+        // 2. Control del SwipeRefresh (Spinner nativo)
+        binding.swipeRefresh.isEnabled = isSuccess || isEmpty || isError // Deshabilitar en carga inicial
+
+        when (state) {
+            is InstallationUIState.Loading -> {
+                binding.swipeRefresh.isRefreshing = false
+            }
+            is InstallationUIState.Success -> {
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
+                bindInstallationData(state.installation)
+            }
+            is InstallationUIState.Empty -> {
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
+                showErrorView(getString(R.string.error_message_generic), ErrorClassifier.ErrorType.Unknown(null))
+                binding.errorView.root.isVisible = true // Reusamos la vista de error para empty
+                binding.errorView.btnRetry.isVisible = true // Permitir reintentar
+            }
+            is InstallationUIState.Error -> {
+                binding.swipeRefresh.isRefreshing = false
+
+                // Si venimos de un estado con datos y falló el refresh silencioso,
+                // el ViewModel habrá vuelto a Success(isRefreshing=false), así que
+                // normalmente no caeremos aquí.
+                // Caeremos aquí solo si falló la carga INICIAL.
+                showErrorView(state.message, state.type)
+            }
+        }
+    }
+
+    // =========================================================================
+    // HELPERS (SIMPLIFICADOS)
+    // =========================================================================
+
+    private fun showErrorView(message: String, type: ErrorClassifier.ErrorType) {
+        // Hacemos visible el include del error
+        binding.errorView.root.isVisible = true
+
+        binding.errorView.tvErrorMessage.text = message
+
+        if (type is ErrorClassifier.ErrorType.Network) {
+            binding.errorView.tvErrorTitle.text = getString(R.string.error_network_title)
+        } else {
+            binding.errorView.tvErrorTitle.text = getString(R.string.error_generic_title)
+        }
+    }
+
+    // He eliminado showShimmer() y stopLoadingEffects() como funciones separadas
+    // para evitar el "efecto secundario" de activar el contentLayout sin querer.
+    // La lógica ahora está explícita dentro del `when`.
+    private fun showShimmer(show: Boolean) {
+        binding.shimmerViewContainer.isVisible = show
+        binding.contentLayout.isVisible = !show
+        if (show) binding.shimmerViewContainer.startShimmer()
+        else binding.shimmerViewContainer.stopShimmer()
+    }
+
+
+    private fun bindInstallationData(installation: Installation) {
+        with(binding) {
+            tvCau.text = installation.selfConsumptionCode
+            tvStatus.text = installation.installationStatus
+            tvType.text = installation.installationType
+            tvCompensation.text = installation.compensation
+            tvPower.text = installation.power
+        }
+    }
+
     private fun showInfoDialog() {
         val inflater = LayoutInflater.from(requireContext())
         val dialogView = inflater.inflate(R.layout.dialog_info, null)
@@ -148,8 +180,9 @@ class DetailsFragment : Fragment() {
 
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
-        val btnAceptar = dialogView.findViewById<Button>(R.id.btnAceptar)
-        btnAceptar.setOnClickListener { dialog.dismiss() }
+        dialogView.findViewById<Button>(R.id.btnAceptar).setOnClickListener {
+            dialog.dismiss()
+        }
 
         dialog.show()
 
@@ -158,4 +191,6 @@ class DetailsFragment : Fragment() {
             window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
     }
+
+
 }

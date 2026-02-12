@@ -9,7 +9,7 @@
     android:background="@android:color/white"
     tools:context=".ui.invoices.InvoiceListActivity">
 
-    <!-- TOOLBAR -->
+    <!-- TOOLBAR (Fijo arriba) -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="@dimen/spacing_zero"
@@ -56,19 +56,8 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.appcompat.widget.Toolbar>
 
-    <!-- RECYCLERVIEW -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
-        android:layout_width="@dimen/spacing_zero"
-        android:layout_height="@dimen/spacing_zero"
-        android:padding="@dimen/spacing_tiny"
-        android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- SHIMMER -->
+    <!-- SHIMMER: Carga Inicial (Tapa todo excepto Toolbar) -->
+    <!-- Se mantiene FUERA del SwipeRefresh para tapar la lista completamente al inicio -->
     <com.facebook.shimmer.ShimmerFrameLayout
         android:id="@+id/shimmerViewContainer"
         android:layout_width="@dimen/spacing_zero"
@@ -78,7 +67,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
 
         <androidx.core.widget.NestedScrollView
             android:importantForAccessibility="no"
@@ -91,6 +79,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
+                <!-- 10 Skeletons -->
                 <include
                     android:id="@+id/skeleton1"
                     layout="@layout/item_invoice_skeleton"
@@ -99,7 +88,6 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton2"
                     layout="@layout/item_invoice_skeleton"
@@ -108,7 +96,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton1"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton3"
                     layout="@layout/item_invoice_skeleton"
@@ -117,7 +104,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton2"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton4"
                     layout="@layout/item_invoice_skeleton"
@@ -126,7 +112,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton3"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton5"
                     layout="@layout/item_invoice_skeleton"
@@ -135,7 +120,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton4"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton6"
                     layout="@layout/item_invoice_skeleton"
@@ -144,7 +128,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton5"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton7"
                     layout="@layout/item_invoice_skeleton"
@@ -153,7 +136,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton6"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton8"
                     layout="@layout/item_invoice_skeleton"
@@ -162,7 +144,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton7"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton9"
                     layout="@layout/item_invoice_skeleton"
@@ -171,7 +152,6 @@
                     app:layout_constraintTop_toBottomOf="@id/skeleton8"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"/>
-
                 <include
                     android:id="@+id/skeleton10"
                     layout="@layout/item_invoice_skeleton"
@@ -187,133 +167,153 @@
 
     </com.facebook.shimmer.ShimmerFrameLayout>
 
-    <!-- ERROR STATE -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/layoutErrorState"
+    <!-- SWIPE REFRESH LAYOUT: Envuelve Contenido + Error + Vacío -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:visibility="gone"
-        android:background="@android:color/white"
-        android:padding="@dimen/spacing_medium"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/ivError"
-            android:layout_width="@dimen/error_state_img_size"
-            android:layout_height="@dimen/error_state_img_size"
-            android:src="@drawable/ic_wifi_off_24"
-            app:tint="@color/darker_gray"
-            android:importantForAccessibility="no"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/tvError"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintVertical_chainStyle="packed"/>
+        <!-- CONTENEDOR INTERMEDIO (Obligatorio para SwipeRefresh) -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/tvError"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/error_conexion"
-            android:textSize="@dimen/text_size_subtitle_large"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:layout_marginTop="@dimen/spacing_medium"
-            app:layout_constraintTop_toBottomOf="@id/ivError"
-            app:layout_constraintBottom_toTopOf="@id/tvErrorDescription"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            <!-- RECYCLERVIEW (Lista) -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="@dimen/spacing_tiny"
+                android:clipToPadding="false"
+                android:visibility="gone"/>
 
-        <TextView
-            android:id="@+id/tvErrorDescription"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_small"
-            android:text="@string/error_conexion_description_message"
-            android:gravity="center"
-            android:textColor="@color/darker_gray"
-            app:layout_constraintTop_toBottomOf="@id/tvError"
-            app:layout_constraintBottom_toTopOf="@id/btnRetry"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintWidth_percent="0.8"/>
+            <!-- ERROR STATE -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/layoutErrorState"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                android:background="@android:color/white"
+                android:padding="@dimen/spacing_medium"
+                android:clickable="true"
+                android:focusable="true">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnRetry"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/reintentar"
-            android:layout_marginTop="@dimen/spacing_medium"
-            app:cornerRadius="@dimen/button_corner_radius_20"
-            app:layout_constraintTop_toBottomOf="@id/tvErrorDescription"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+                <ImageView
+                    android:id="@+id/ivError"
+                    android:layout_width="@dimen/error_state_img_size"
+                    android:layout_height="@dimen/error_state_img_size"
+                    android:src="@drawable/ic_wifi_off_24"
+                    app:tint="@color/darker_gray"
+                    android:importantForAccessibility="no"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/tvError"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintVertical_chainStyle="packed"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                <TextView
+                    android:id="@+id/tvError"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/error_conexion"
+                    android:textSize="@dimen/text_size_subtitle_large"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black"
+                    android:layout_marginTop="@dimen/spacing_medium"
+                    app:layout_constraintTop_toBottomOf="@id/ivError"
+                    app:layout_constraintBottom_toTopOf="@id/tvErrorDescription"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- EMPTY STATE -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/layoutEmptyState"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone"
-        android:background="@android:color/white"
-        android:padding="@dimen/spacing_medium"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+                <TextView
+                    android:id="@+id/tvErrorDescription"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_small"
+                    android:text="@string/error_conexion_description_message"
+                    android:gravity="center"
+                    android:textColor="@color/darker_gray"
+                    app:layout_constraintTop_toBottomOf="@id/tvError"
+                    app:layout_constraintBottom_toTopOf="@id/btnRetry"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintWidth_percent="0.8"/>
 
-        <ImageView
-            android:id="@+id/ivEmpty"
-            android:layout_width="@dimen/empty_state_img_size"
-            android:layout_height="@dimen/empty_state_img_size"
-            android:src="@drawable/ic_empty_list"
-            android:importantForAccessibility="no"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/tvEmptyTitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintVertical_chainStyle="packed"
-            app:layout_constraintVertical_bias="0"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRetry"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/reintentar"
+                    android:layout_marginTop="@dimen/spacing_medium"
+                    app:cornerRadius="@dimen/button_corner_radius_20"
+                    app:layout_constraintTop_toBottomOf="@id/tvErrorDescription"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
-        <TextView
-            android:id="@+id/tvEmptyTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/sin_resultados"
-            android:textSize="@dimen/text_size_title"
-            android:textStyle="bold"
-            android:textColor="@color/darker_gray"
-            android:layout_marginTop="@dimen/spacing_small"
-            app:layout_constraintTop_toBottomOf="@id/ivEmpty"
-            app:layout_constraintBottom_toTopOf="@id/tvEmptySubtitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <TextView
-            android:id="@+id/tvEmptySubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/change_filters"
-            android:textSize="@dimen/text_size_subtitle"
-            android:textColor="@color/dark_gray"
-            android:layout_marginTop="@dimen/spacing_tiny"
-            app:layout_constraintTop_toBottomOf="@id/tvEmptyTitle"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+            <!-- EMPTY STATE -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/layoutEmptyState"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                android:background="@android:color/white"
+                android:padding="@dimen/spacing_medium"
+                android:clickable="true"
+                android:focusable="true">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+                <ImageView
+                    android:id="@+id/ivEmpty"
+                    android:layout_width="@dimen/empty_state_img_size"
+                    android:layout_height="@dimen/empty_state_img_size"
+                    android:src="@drawable/ic_empty_list"
+                    android:importantForAccessibility="no"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toTopOf="@id/tvEmptyTitle"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintVertical_chainStyle="packed"
+                    app:layout_constraintVertical_bias="0"/>
 
+                <TextView
+                    android:id="@+id/tvEmptyTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/sin_resultados"
+                    android:textSize="@dimen/text_size_title"
+                    android:textStyle="bold"
+                    android:textColor="@color/darker_gray"
+                    android:layout_marginTop="@dimen/spacing_small"
+                    app:layout_constraintTop_toBottomOf="@id/ivEmpty"
+                    app:layout_constraintBottom_toTopOf="@id/tvEmptySubtitle"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
+                <TextView
+                    android:id="@+id/tvEmptySubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/change_filters"
+                    android:textSize="@dimen/text_size_subtitle"
+                    android:textColor="@color/dark_gray"
+                    android:layout_marginTop="@dimen/spacing_tiny"
+                    app:layout_constraintTop_toBottomOf="@id/tvEmptyTitle"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- FRAGMENT CONTAINER -->
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- FRAGMENT CONTAINER (Para filtros, siempre encima de todo) -->
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="@dimen/spacing_zero"

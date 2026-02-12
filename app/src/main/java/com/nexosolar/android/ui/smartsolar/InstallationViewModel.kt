@@ -1,113 +1,109 @@
 package com.nexosolar.android.ui.smartsolar
 
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.core.toTechnicalMessage
 import com.nexosolar.android.core.toUserMessage
-import com.nexosolar.android.domain.models.Installation
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
-import com.nexosolar.android.ui.smartsolar.managers.InstallationDataManager
-import com.nexosolar.android.ui.smartsolar.managers.InstallationStateManager
-import kotlinx.coroutines.delay
+import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel que gestiona el estado y la lógica de negocio relacionada
- * con los datos de instalación solar.
- *
- * Responsabilidades:
- * - Coordinar managers especializados (DataManager, StateManager)
- * - Exponer LiveData para observación desde la UI
- * - Gestionar estados de carga y errores con corrutinas
- */
 class InstallationViewModel(
-    getInstallationDetailsUseCase: GetInstallationDetailsUseCase
+    private val getInstallationUseCase: GetInstallationDetailsUseCase,
+    private val refreshInstallationUseCase: RefreshInstallationUseCase
 ) : ViewModel() {
 
-    // ===== Managers =====
+    private companion object {
+        private const val TAG = "InstallationVM"
+    }
 
-    private val dataManager = InstallationDataManager(getInstallationDetailsUseCase)
-    private val stateManager = InstallationStateManager()
+    private val _uiState = MutableStateFlow<InstallationUIState>(InstallationUIState.Loading)
+    val uiState: StateFlow<InstallationUIState> = _uiState.asStateFlow()
 
-    private var isFirstLoad = true
+    private var collectionJob: Job? = null
 
-    // ===== LiveData expuestos =====
+    init {
+        observarInstalacion()
+    }
 
-    val installation: LiveData<Installation?> = dataManager.installation
-    val viewState: LiveData<InstallationStateManager.ViewState> = stateManager.currentState
-    val errorMessage: LiveData<String?> = stateManager.errorMessage
-    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
-
-    // ===== Métodos públicos =====
-
-    /**
-     * Solicita los detalles de la instalación mediante el DataManager.
-     * Actualiza los LiveData según el resultado (éxito/error).
-     */
-    fun loadInstallationDetails() {
-        stateManager.showLoading()
-
-        // Lanzamos una corrutina en el scope del ViewModel
-        viewModelScope.launch {
-            try {
-                dataManager.loadInstallationDetails()
-                isFirstLoad = false
-                stateManager.showData()
-
-            } catch (e: Exception) {
-                // Cualquier error que lance el use case caerá aquí automáticamente
-                isFirstLoad = false
-                handleLoadError(e)
-            }
+    private fun observarInstalacion() {
+        collectionJob?.cancel()
+        collectionJob = viewModelScope.launch {
+            getInstallationUseCase()
+                .onStart {
+                    // Solo ponemos Loading si es la primera vez (no hay datos previos)
+                    if (_uiState.value !is InstallationUIState.Success) {
+                        _uiState.value = InstallationUIState.Loading
+                    }
+                }
+                .catch { error ->
+                    val errorType = ErrorClassifier.classify(error)
+                    Logger.e(TAG, errorType.toTechnicalMessage(), error)
+                    _uiState.value = InstallationUIState.Error(
+                        message = errorType.toUserMessage(),
+                        type = errorType
+                    )
+                }
+                .collect { installation ->
+                    Logger.d(TAG, "[FLOW] Received installation data")
+                    // Al recibir datos nuevos de Room, el refresh termina automáticamente (isRefreshing = false)
+                    if (installation == null) {
+                        _uiState.value = InstallationUIState.Empty(isRefreshing = false)
+                    } else {
+                        _uiState.value = InstallationUIState.Success(installation, isRefreshing = false)
+                    }
+                }
         }
     }
 
     /**
-     * Verifica si hay datos cargados en memoria.
+     *
+     * Mantiene los datos visibles y solo activa el spinner.
      */
-    fun hasCachedData(): Boolean = dataManager.hasCachedData()
+    fun onRefresh() {
+        val currentState = _uiState.value
 
-    /**
-     * Verifica si el estado actual es de error.
-     */
-    fun isErrorState(): Boolean = stateManager.isError()
+        // Solo permitimos refresh si estamos en Success o Empty
+        if (currentState is InstallationUIState.Success || currentState is InstallationUIState.Empty) {
+            viewModelScope.launch {
+                // 1. Activar spinner visualmente (sin borrar datos)
+                if (currentState is InstallationUIState.Success) {
+                    _uiState.update { currentState.copy(isRefreshing = true) }
+                } else if (currentState is InstallationUIState.Empty) {
+                    _uiState.update { currentState.copy(isRefreshing = true) }
+                }
 
-    // ===== Métodos privados =====
+                // 2. Llamada de red
+                try {
+                    refreshInstallationUseCase()
+                    // Si va bien, Room se actualiza -> 'observarInstalacion' emite nuevo valor -> Spinner se apaga solo
+                } catch (error: Exception) {
+                    Logger.e(TAG, "Error refrescando instalación", error)
 
-    private fun handleLoadError(error: Throwable) {
-        // 1️⃣ Early return si hay caché (igual que antes)
-        if (dataManager.hasCachedData()) {
-            stateManager.showData()
-            return
-        }
+                    // 3. Si falla, apagamos el spinner manualmente y mantenemos los datos viejos
+                    // (Opcional: aquí podrías emitir un evento OneShot para un Toast de error)
+                    if (currentState is InstallationUIState.Success) {
+                        _uiState.update { currentState.copy(isRefreshing = false) }
+                    } else if (currentState is InstallationUIState.Empty) {
+                        _uiState.update { currentState.copy(isRefreshing = false) }
+                    }
 
-        // 2️⃣ Clasificas el error dentro del when (smart casting)
-        //    ✅ El compilador sabe el tipo exacto en cada rama
-        when (val errorType = ErrorClassifier.classify(error)) {
-
-            // 3️⃣ Caso Network: errorType es automáticamente ErrorType.Network
-            //    ✅ Puedes acceder a errorType.details si lo necesitas
-            is ErrorClassifier.ErrorType.Network -> {
-                viewModelScope.launch {
-                    delay(3000)
-                    // ✅ Llamada fluida: errorType.toUserMessage()
-                    stateManager.showNetworkError(errorType.toUserMessage())
+                    // NOTA: Si quisieras mostrar Toast, necesitarías un Channel de efectos (SideEffects),
+                    // pero para mantenerlo simple como Invoices, solo paramos el spinner.
                 }
             }
-
-            // 4️⃣ Caso Server: errorType es automáticamente ErrorType.Server
-            is ErrorClassifier.ErrorType.Server -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            // 5️⃣ Caso Unknown: errorType es automáticamente ErrorType.Unknown
-            is ErrorClassifier.ErrorType.Unknown -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            // ⚠️ NO necesitas `else` - el compilador verifica exhaustividad
+        } else {
+            // Si estamos en Error y damos a "Reintentar", hacemos carga completa
+            observarInstalacion()
         }
     }
-
 }

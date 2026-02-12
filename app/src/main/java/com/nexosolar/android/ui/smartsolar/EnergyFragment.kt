@@ -34,7 +34,7 @@ class EnergyFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // TODO: Posible mejora: Implementar observación de LiveData con métricas energéticas
+
     }
 
     override fun onDestroyView() {

@@ -1,8 +1,8 @@
 package com.nexosolar.android.data.repository
 
 import com.nexosolar.android.data.InvoiceMapper
-import com.nexosolar.android.data.local.InvoiceDao
 import com.nexosolar.android.data.local.InvoiceEntity
+import com.nexosolar.android.data.source.InvoiceLocalDataSource
 import com.nexosolar.android.data.source.InvoiceRemoteDataSource
 import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.models.Invoice
@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
  */
 class InvoiceRepositoryImpl(
     private val remoteDataSource: InvoiceRemoteDataSource,
-    private val localDataSource: InvoiceDao,
+    private val localDataSource: InvoiceLocalDataSource,
     private val mapper: InvoiceMapper = InvoiceMapper,
     private val isMockMode: Boolean = false
 ) : InvoiceRepository {
@@ -49,12 +49,7 @@ class InvoiceRepositoryImpl(
      * @return Flow que emite actualizaciones automáticas de facturas
      */
     override fun getInvoices(): Flow<List<Invoice>> {
-        // Modo Mock
-        if (isMockMode) {
-            return flow {
-                emit(mapper.toDomainList(remoteDataSource.getFacturas()))
-            }.flowOn(Dispatchers.IO)
-        }
+
 
         // Modo Producción (Pure Flow)
         return localDataSource.getAllInvoices() // Fuente de verdad única
@@ -68,14 +63,14 @@ class InvoiceRepositoryImpl(
                     fetchAndCacheInvoices()
                 } catch (e: Exception) {
                     Logger.e(TAG, "[NETWORK] Background update failed: ${e.message}")
-                    val cacheCount = localDataSource.getCount()
+                    val isCacheEmpty = localDataSource.isCacheEmpty()
 
-                    if (cacheCount == 0) {
+                    if (isCacheEmpty) {
                         // No hay datos locales, lanzamos el error
                         throw e
                     } else {
                         // Hay datos locales, ignoramos el error
-                        Logger.w(TAG, "Using cached data (${cacheCount} items)")
+                        Logger.w(TAG, "Network failed but cache exists. Showing offline data.")
                     }
                 }
             }
@@ -91,22 +86,9 @@ class InvoiceRepositoryImpl(
      * Limpia la BD y trae datos nuevos. Room emitirá automáticamente al guardar.
      */
     override suspend fun refreshInvoices() = withContext(Dispatchers.IO) {
-        Logger.d(TAG, "[REFRESH] Force refreshing invoices...")
-
-        if (isMockMode) {
-            Logger.d(TAG, "[REFRESH] Mock mode: bypassing Room refresh logic")
-            return@withContext
-        }
-
-        try {
-            val entities = remoteDataSource.getFacturas()
-            Logger.d(TAG, "[REFRESH] Received ${entities.size} invoices")
-            saveToDatabase(entities) // Esto disparará el Flow automáticamente
-            Logger.d(TAG, "[REFRESH] Completed successfully")
-        } catch (e: Exception) {
-            Logger.e(TAG, "[REFRESH] Error: ${e.message}", e)
-            throw e
-        }
+        // SIEMPRE pedimos a la fuente remota (sea Mock o Real) y guardamos en Room
+        val entities = remoteDataSource.getFacturas()
+        saveToDatabase(entities)
     }
 
     // =========================================================================
@@ -135,7 +117,6 @@ class InvoiceRepositoryImpl(
      * Transacción de reemplazo total en base de datos.
      */
     private suspend fun saveToDatabase(entities: List<InvoiceEntity>) {
-        localDataSource.deleteAll()
-        localDataSource.insertAll(entities)
+        localDataSource.replaceInvoices(entities)
     }
 }

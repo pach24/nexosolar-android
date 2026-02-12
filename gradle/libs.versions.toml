@@ -28,6 +28,7 @@ gson = "2.11.0"
 desugar = "2.1.2" # Actualizado
 shimmer = "0.5.0"
 recyclerview = "1.4.0"
+swiperefreshlayout = "1.1.0"
 
 # Testing
 junit = "4.13.2" # Legacy (se mantiene por si acaso, pero recomiendo migrar)
@@ -90,6 +91,9 @@ mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mo
 mockito-inline = { group = "org.mockito", name = "mockito-inline", version.ref = "mockito" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# --- Swipe Refresh
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

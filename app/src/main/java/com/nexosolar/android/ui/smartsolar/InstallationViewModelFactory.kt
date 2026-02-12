@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.nexosolar.android.domain.repository.InstallationRepository
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
+import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
 
 /**
  * Factory para la creación de InstallationViewModel con inyección manual de dependencias.
@@ -21,8 +22,9 @@ class InstallationViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(InstallationViewModel::class.java)) {
-            val useCase = GetInstallationDetailsUseCase(repository)
-            return InstallationViewModel(useCase) as T
+            val getUseCase = GetInstallationDetailsUseCase(repository)
+            val refreshUseCase = RefreshInstallationUseCase(repository)
+            return InstallationViewModel(getUseCase, refreshUseCase) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

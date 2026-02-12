@@ -3,7 +3,6 @@ package com.nexosolar.android.ui.invoices
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
@@ -16,9 +15,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.databinding.ActivityInvoiceListBinding
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
+import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
 import kotlinx.coroutines.launch
 
 /**
@@ -35,7 +36,9 @@ class InvoiceListActivity : AppCompatActivity() {
         val app = application as NexoSolarApplication
         // Nota: Asegúrate de que provideInvoiceRepository() devuelve el Repo actualizado
         val repository = app.dataModule.provideInvoiceRepository()
-        InvoiceViewModelFactory(GetInvoicesUseCase(repository), FilterInvoicesUseCase())
+        InvoiceViewModelFactory(GetInvoicesUseCase(repository), FilterInvoicesUseCase(),
+            RefreshInvoicesUseCase(repository)
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +52,7 @@ class InvoiceListActivity : AppCompatActivity() {
         setupListeners()
         setupBackPressHandler()
 
-        // Listener para restaurar UI al cerrar filtros
+
         supportFragmentManager.addOnBackStackChangedListener {
             val isFiltering = isFilteringActive()
             binding.toolbar.isVisible = !isFiltering
@@ -88,35 +91,50 @@ class InvoiceListActivity : AppCompatActivity() {
     // ========== UI RENDERING ==========
 
     private fun renderUiState(state: InvoiceUIState) {
-        // Si hay filtro activo, no tocamos nada para evitar glitches visuales
         if (isFilteringActive()) return
 
-        // 1. Resetear visibilidades (ocultar todo por defecto)
-        ocultarShimmer()
-        binding.layoutErrorState.isVisible = false
-        binding.layoutEmptyState.isVisible = false
-        binding.recyclerView.isVisible = false
+        // 1. Calculamos flags booleanos para saber qué mostrar
+        val isLoading = state is InvoiceUIState.Loading
+        val isError = state is InvoiceUIState.Error
+        val isEmpty = state is InvoiceUIState.Empty
+        val isSuccess = state is InvoiceUIState.Success
 
-        // 2. Activar lo que corresponda
+        // 2. Asignamos visibilidades ATÓMICAMENTE (sin apagar primero)
+        // El Shimmer solo sale si es Loading puro (Hard Refresh)
+        binding.shimmerViewContainer.isVisible = isLoading
+        if (isLoading) binding.shimmerViewContainer.startShimmer() else binding.shimmerViewContainer.stopShimmer()
+
+        binding.layoutErrorState.isVisible = isError
+
+        // IMPORTANTE: Aquí evitamos el parpadeo.
+        // Si pasas de Empty(refresca=true) -> Empty(refresca=false),
+        // 'isEmpty' siempre es true, así que la vista NUNCA se oculta.
+        binding.layoutEmptyState.isVisible = isEmpty
+        binding.recyclerView.isVisible = isSuccess
+
+        // 3. Configuración específica de cada estado
         when (state) {
             is InvoiceUIState.Loading -> {
-                mostrarShimmer()
+                binding.swipeRefresh.isEnabled = false
             }
             is InvoiceUIState.Success -> {
-                binding.recyclerView.isVisible = true
+                binding.swipeRefresh.isEnabled = true
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
                 adapter.submitList(state.invoices)
             }
             is InvoiceUIState.Empty -> {
-                binding.layoutEmptyState.isVisible = true
+                binding.swipeRefresh.isEnabled = true
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
                 adapter.submitList(emptyList())
+
             }
             is InvoiceUIState.Error -> {
+                binding.swipeRefresh.isEnabled = true
+                binding.swipeRefresh.isRefreshing = false
                 configurarVistaError(state.type)
-                binding.layoutErrorState.isVisible = true
             }
         }
 
-        // Actualizar menú (para habilitar/deshabilitar botón de filtro)
         invalidateOptionsMenu()
     }
 
@@ -156,15 +174,17 @@ class InvoiceListActivity : AppCompatActivity() {
     // ========== LISTENERS & INTERACTIONS ==========
 
     private fun setupListeners() {
-        // Nota: cargarFacturas() ya no existe como tal en VM reactivo,
-        // pero puedes crear refresh() o simplemente volver a observar si fuera manual.
-        // Asumiendo que has creado un método refresh() en VM que llama a repo.refreshInvoices()
+
+
         binding.btnRetry.setOnClickListener {
-            // Opción A: Relanzar observación (simple)
-            // Opción B: Llamar a método refresh explícito
             invoiceViewModel.refresh()
         }
         binding.btnVolver.setOnClickListener { finish() }
+
+        binding.swipeRefresh.setOnRefreshListener {
+
+            invoiceViewModel.onSwipeRefresh()
+        }
     }
 
     private fun setupBackPressHandler() {
@@ -194,7 +214,7 @@ class InvoiceListActivity : AppCompatActivity() {
         val currentState = invoiceViewModel.uiState.value
 
         val canFilter = currentState is InvoiceUIState.Success
-        // || currentState is InvoiceUIState.Empty (si quisieras permitir filtro en vacío)
+         || currentState is InvoiceUIState.Empty
 
         filtroItem.isEnabled = canFilter
         return true
@@ -205,7 +225,7 @@ class InvoiceListActivity : AppCompatActivity() {
         if (item.itemId == R.id.action_filters) {
             val currentState = invoiceViewModel.uiState.value
 
-            if (currentState is InvoiceUIState.Success) {
+            if (currentState is InvoiceUIState.Success || currentState is InvoiceUIState.Empty) {
                 mostrarFiltroFragment()
             } else {
                 Toast.makeText(this, R.string.no_data_to_filter, Toast.LENGTH_SHORT).show()

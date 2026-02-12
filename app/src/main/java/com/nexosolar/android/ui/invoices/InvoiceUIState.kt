@@ -13,10 +13,13 @@ sealed interface InvoiceUIState {
     object Loading : InvoiceUIState
 
     // 2. Datos cargados correctamente (Lista visible)
-    data class Success(val invoices: List<Invoice>) : InvoiceUIState
+    data class Success(
+        val invoices: List<Invoice>,
+        val isRefreshing: Boolean = false
+    ) : InvoiceUIState
 
     // 3. Carga exitosa pero sin resultados (Empty View)
-    object Empty : InvoiceUIState
+    data class Empty(val isRefreshing: Boolean = false) : InvoiceUIState
 
     // 4. Error (Pantalla de error)
     // Guardamos el tipo de error para saber qué icono/texto mostrar (Red vs Servidor)

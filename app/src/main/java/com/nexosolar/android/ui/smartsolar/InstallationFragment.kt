@@ -29,7 +29,7 @@ class InstallationFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // TODO: Posinle mejora Conectar ViewModel para cargar datos de producción solar y autoconsumo
+
     }
 
     override fun onDestroyView() {

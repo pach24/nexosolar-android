@@ -1,6 +1,7 @@
 package com.nexosolar.android.domain.repository
 
 import com.nexosolar.android.domain.models.Installation
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Contrato de repositorio para la gestión de datos de instalaciones.
@@ -17,5 +18,7 @@ interface InstallationRepository {
      * @return Detalles de la instalación solar
      * @throws Exception si ocurre un error de red o parsing
      */
-    suspend fun getInstallationDetails(): Installation
+    fun getInstallationDetails(): Flow<Installation?>
+
+    suspend fun refreshInstallation()
 }

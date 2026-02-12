@@ -85,10 +85,10 @@ fun ErrorClassifier.ErrorType.toUserMessage(): String = when (this) {
         "No hay conexión a internet. Revisa tu red."
 
     is ErrorClassifier.ErrorType.Server ->
-        "El servidor no responde correctamente${details?.let { " ($it)" }.orEmpty()}."
+        "El servidor no responde correctamente"
 
     is ErrorClassifier.ErrorType.Unknown ->
-        "Error inesperado${details?.let { ": $it" }.orEmpty()}."
+        "Ha ocurrido un error inesperado."
 }
 
 /**

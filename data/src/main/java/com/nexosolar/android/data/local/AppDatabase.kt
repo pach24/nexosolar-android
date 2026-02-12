@@ -16,8 +16,8 @@ import androidx.room.TypeConverters
  * Versión actual: 2 (con soporte para LocalDate mediante TypeConverters)
  */
 @Database(
-    entities = [InvoiceEntity::class],
-    version = 3,
+    entities = [InvoiceEntity::class, InstallationEntity::class],
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(RoomConverters::class)
@@ -29,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
      * @return Instancia del DAO para operaciones CRUD sobre facturas
      */
     abstract fun invoiceDao(): InvoiceDao
+    abstract fun installationDao(): InstallationDao
 
     companion object {
 
