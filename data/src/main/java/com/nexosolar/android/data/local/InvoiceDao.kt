@@ -8,11 +8,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface InvoiceDao {
-    // ✅ Único punto de lectura: Flow reactivo
+    // Único punto de lectura: Flow reactivo
     @Query("SELECT * FROM facturas")
     fun getAllInvoices(): Flow<List<InvoiceEntity>>
 
-    // ✅ Helper ligero para verificar si hay datos sin cargar toda la lista
+    // Helper ligero para verificar si hay datos sin cargar toda la lista
     @Query("SELECT COUNT(*) FROM facturas")
     suspend fun getCount(): Int
 

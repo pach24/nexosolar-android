@@ -12,9 +12,12 @@ import com.nexosolar.android.data.repository.InvoiceRepositoryImpl
 import com.nexosolar.android.data.source.InvoiceRemoteDataSourceImpl
 import com.nexosolar.android.domain.repository.InstallationRepository
 import com.nexosolar.android.domain.repository.InvoiceRepository
+import com.nexosolar.android.data.source.InvoiceLocalDataSourceImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import androidx.core.content.edit
+import com.nexosolar.android.data.source.InstallationLocalDataSourceImpl
+import com.nexosolar.android.data.source.InstallationRemoteDataSourceImpl
 
 /**
  * Módulo de inyección de dependencias manual para la capa de datos.
@@ -78,17 +81,31 @@ class DataModule(
         }
 
         val remoteDataSource = InvoiceRemoteDataSourceImpl(apiService)
+        val localDataSource = InvoiceLocalDataSourceImpl(invoiceDao)
         val mapper = InvoiceMapper
-        return InvoiceRepositoryImpl(remoteDataSource, invoiceDao, mapper, isMockMode = useMock)
+
+        return InvoiceRepositoryImpl(remoteDataSource, localDataSource, mapper, isMockMode = useMock)
     }
 
     /**
      * Proporciona una instancia del repositorio de instalaciones.
-     *
-     * @return Repositorio de instalaciones configurado
      */
     fun provideInstallationRepository(): InstallationRepository {
-        return InstallationRepositoryImpl(provideApiService())
+        val apiService = provideApiService()
+        val database = AppDatabase.getInstance(context) // Obtenemos la BD
+        val installationDao = database.installationDao() // Obtenemos el DAO
+
+        // 1. Data Sources
+        val remoteDataSource = InstallationRemoteDataSourceImpl(apiService)
+        val localDataSource = InstallationLocalDataSourceImpl(installationDao)
+        val mapper = InstallationMapper
+
+        // 2. Repositorio con dependencias inyectadas
+        return InstallationRepositoryImpl(
+            remoteDataSource = remoteDataSource,
+            localDataSource = localDataSource,
+            mapper = mapper
+        )
     }
 
     /**
