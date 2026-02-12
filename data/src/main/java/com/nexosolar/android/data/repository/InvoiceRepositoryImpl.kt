@@ -1,8 +1,8 @@
 package com.nexosolar.android.data.repository
 
 import com.nexosolar.android.data.InvoiceMapper
-import com.nexosolar.android.data.local.InvoiceDao
 import com.nexosolar.android.data.local.InvoiceEntity
+import com.nexosolar.android.data.source.InvoiceLocalDataSource
 import com.nexosolar.android.data.source.InvoiceRemoteDataSource
 import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.models.Invoice
@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
  */
 class InvoiceRepositoryImpl(
     private val remoteDataSource: InvoiceRemoteDataSource,
-    private val localDataSource: InvoiceDao,
+    private val localDataSource: InvoiceLocalDataSource,
     private val mapper: InvoiceMapper = InvoiceMapper,
     private val isMockMode: Boolean = false
 ) : InvoiceRepository {
@@ -68,14 +68,14 @@ class InvoiceRepositoryImpl(
                     fetchAndCacheInvoices()
                 } catch (e: Exception) {
                     Logger.e(TAG, "[NETWORK] Background update failed: ${e.message}")
-                    val cacheCount = localDataSource.getCount()
+                    val isCacheEmpty = localDataSource.isCacheEmpty()
 
-                    if (cacheCount == 0) {
+                    if (isCacheEmpty) {
                         // No hay datos locales, lanzamos el error
                         throw e
                     } else {
                         // Hay datos locales, ignoramos el error
-                        Logger.w(TAG, "Using cached data (${cacheCount} items)")
+                        Logger.w(TAG, "Network failed but cache exists. Showing offline data.")
                     }
                 }
             }
@@ -135,7 +135,6 @@ class InvoiceRepositoryImpl(
      * Transacción de reemplazo total en base de datos.
      */
     private suspend fun saveToDatabase(entities: List<InvoiceEntity>) {
-        localDataSource.deleteAll()
-        localDataSource.insertAll(entities)
+        localDataSource.replaceInvoices(entities)
     }
 }
