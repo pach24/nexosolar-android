@@ -49,12 +49,7 @@ class InvoiceRepositoryImpl(
      * @return Flow que emite actualizaciones automáticas de facturas
      */
     override fun getInvoices(): Flow<List<Invoice>> {
-        // Modo Mock
-        if (isMockMode) {
-            return flow {
-                emit(mapper.toDomainList(remoteDataSource.getFacturas()))
-            }.flowOn(Dispatchers.IO)
-        }
+
 
         // Modo Producción (Pure Flow)
         return localDataSource.getAllInvoices() // Fuente de verdad única
@@ -91,22 +86,9 @@ class InvoiceRepositoryImpl(
      * Limpia la BD y trae datos nuevos. Room emitirá automáticamente al guardar.
      */
     override suspend fun refreshInvoices() = withContext(Dispatchers.IO) {
-        Logger.d(TAG, "[REFRESH] Force refreshing invoices...")
-
-        if (isMockMode) {
-            Logger.d(TAG, "[REFRESH] Mock mode: bypassing Room refresh logic")
-            return@withContext
-        }
-
-        try {
-            val entities = remoteDataSource.getFacturas()
-            Logger.d(TAG, "[REFRESH] Received ${entities.size} invoices")
-            saveToDatabase(entities) // Esto disparará el Flow automáticamente
-            Logger.d(TAG, "[REFRESH] Completed successfully")
-        } catch (e: Exception) {
-            Logger.e(TAG, "[REFRESH] Error: ${e.message}", e)
-            throw e
-        }
+        // SIEMPRE pedimos a la fuente remota (sea Mock o Real) y guardamos en Room
+        val entities = remoteDataSource.getFacturas()
+        saveToDatabase(entities)
     }
 
     // =========================================================================

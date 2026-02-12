@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -21,6 +22,12 @@ interface InvoiceDao {
 
     @Query("DELETE FROM facturas")
     suspend fun deleteAll()
+
+    @Transaction
+    suspend fun replaceInvoices(invoices: List<InvoiceEntity>) {
+        deleteAll()
+        insertAll(invoices)
+    }
 
 
 }

@@ -13,8 +13,7 @@ class InvoiceLocalDataSourceImpl(
     }
 
     override suspend fun replaceInvoices(invoices: List<InvoiceEntity>) {
-        dao.deleteAll()
-        dao.insertAll(invoices)
+        dao.replaceInvoices(invoices)
     }
 
     override suspend fun isCacheEmpty(): Boolean {

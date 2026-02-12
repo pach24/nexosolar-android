@@ -23,7 +23,7 @@ class InvoiceRemoteDataSourceImpl(
      * @throws Exception Si hay error de red o del servidor
      */
     override suspend fun getFacturas(): List<InvoiceEntity> {
-        val response = apiService.getFacturas()  // ⚡ Llamada directa
+        val response = apiService.getFacturas()
         return mapper.toEntityListFromDto(response.facturas?.filterNotNull())
     }
 

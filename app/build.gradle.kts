@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.shimmer)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.swiperefreshlayout)
 
     // --- LIFECYCLE & NAVIGATION ---
     implementation(libs.androidx.lifecycle.viewmodel)
@@ -82,4 +83,5 @@ dependencies {
     // Por ahora mantenemos compatibilidad básica.
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
 }
