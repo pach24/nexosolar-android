@@ -1,113 +1,90 @@
+// File: ui/smartsolar/InstallationViewModel.kt
 package com.nexosolar.android.ui.smartsolar
 
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.core.toUserMessage
-import com.nexosolar.android.domain.models.Installation
+import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
-import com.nexosolar.android.ui.smartsolar.managers.InstallationDataManager
-import com.nexosolar.android.ui.smartsolar.managers.InstallationStateManager
-import kotlinx.coroutines.delay
+import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel que gestiona el estado y la lógica de negocio relacionada
- * con los datos de instalación solar.
- *
- * Responsabilidades:
- * - Coordinar managers especializados (DataManager, StateManager)
- * - Exponer LiveData para observación desde la UI
- * - Gestionar estados de carga y errores con corrutinas
- */
 class InstallationViewModel(
-    getInstallationDetailsUseCase: GetInstallationDetailsUseCase
+    private val getInstallationUseCase: GetInstallationDetailsUseCase,
+    private val refreshInstallationUseCase: RefreshInstallationUseCase
 ) : ViewModel() {
 
-    // ===== Managers =====
+    private companion object {
+        private const val TAG = "InstallationVM"
+    }
 
-    private val dataManager = InstallationDataManager(getInstallationDetailsUseCase)
-    private val stateManager = InstallationStateManager()
+    // ========== STATEFLOW (Fuente de verdad) ==========
+    private val _uiState = MutableStateFlow<InstallationUIState>(InstallationUIState.Loading)
+    val uiState: StateFlow<InstallationUIState> = _uiState.asStateFlow()
 
-    private var isFirstLoad = true
+    private var collectionJob: Job? = null
 
-    // ===== LiveData expuestos =====
-
-    val installation: LiveData<Installation?> = dataManager.installation
-    val viewState: LiveData<InstallationStateManager.ViewState> = stateManager.currentState
-    val errorMessage: LiveData<String?> = stateManager.errorMessage
-    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
-
-    // ===== Métodos públicos =====
-
-    /**
-     * Solicita los detalles de la instalación mediante el DataManager.
-     * Actualiza los LiveData según el resultado (éxito/error).
-     */
-    fun loadInstallationDetails() {
-        stateManager.showLoading()
-
-        // Lanzamos una corrutina en el scope del ViewModel
-        viewModelScope.launch {
-            try {
-                dataManager.loadInstallationDetails()
-                isFirstLoad = false
-                stateManager.showData()
-
-            } catch (e: Exception) {
-                // Cualquier error que lance el use case caerá aquí automáticamente
-                isFirstLoad = false
-                handleLoadError(e)
-            }
-        }
+    init {
+        observarInstalacion()
     }
 
     /**
-     * Verifica si hay datos cargados en memoria.
+     * Sigue el mismo patrón que InvoiceViewModel.observarFacturas()
      */
-    fun hasCachedData(): Boolean = dataManager.hasCachedData()
+    private fun observarInstalacion() {
+        collectionJob?.cancel()
+        collectionJob = viewModelScope.launch {
 
-    /**
-     * Verifica si el estado actual es de error.
-     */
-    fun isErrorState(): Boolean = stateManager.isError()
-
-    // ===== Métodos privados =====
-
-    private fun handleLoadError(error: Throwable) {
-        // 1️⃣ Early return si hay caché (igual que antes)
-        if (dataManager.hasCachedData()) {
-            stateManager.showData()
-            return
-        }
-
-        // 2️⃣ Clasificas el error dentro del when (smart casting)
-        //    ✅ El compilador sabe el tipo exacto en cada rama
-        when (val errorType = ErrorClassifier.classify(error)) {
-
-            // 3️⃣ Caso Network: errorType es automáticamente ErrorType.Network
-            //    ✅ Puedes acceder a errorType.details si lo necesitas
-            is ErrorClassifier.ErrorType.Network -> {
-                viewModelScope.launch {
-                    delay(3000)
-                    // ✅ Llamada fluida: errorType.toUserMessage()
-                    stateManager.showNetworkError(errorType.toUserMessage())
+            getInstallationUseCase()
+                .onStart {
+                    _uiState.value = InstallationUIState.Loading
                 }
-            }
-
-            // 4️⃣ Caso Server: errorType es automáticamente ErrorType.Server
-            is ErrorClassifier.ErrorType.Server -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            // 5️⃣ Caso Unknown: errorType es automáticamente ErrorType.Unknown
-            is ErrorClassifier.ErrorType.Unknown -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            // ⚠️ NO necesitas `else` - el compilador verifica exhaustividad
+                .catch { error ->
+                    Logger.e(TAG, "[ERROR] Flow error: ${error.message}", error)
+                    val errorType = ErrorClassifier.classify(error)
+                    _uiState.value = InstallationUIState.Error(
+                        message = errorType.toUserMessage(),
+                        type = errorType
+                    )
+                }
+                .collect { installation ->
+                    Logger.d(TAG, "[FLOW] Received installation data")
+                    if (installation == null) {
+                        _uiState.value = InstallationUIState.Empty
+                    } else {
+                        _uiState.value = InstallationUIState.Success(installation)
+                    }
+                }
         }
     }
 
+    /**
+     * Acción explícita de recarga (Swipe to Refresh).
+     * Mantenemos la lógica separada del refresh para no "ensuciar" el observer.
+     */
+    fun onRefresh() {
+        viewModelScope.launch {
+            // Opcional: Si quieres mostrar loading completo como en Invoice:
+            // observarInstalacion()
+
+            // O MEJOR (UX Superior): Mantener los datos viejos mientras se actualiza
+            // y solo mostrar error si falla, sin borrar la pantalla.
+            try {
+                refreshInstallationUseCase()
+                // Al terminar, el Flow de observarInstalacion emitirá los nuevos datos automáticamente
+            } catch (error: Exception) {
+                Logger.e(TAG, "Error refrescando instalación", error)
+                // Aquí podrías emitir un evento One-Shot (Toast) si quisieras
+                // Pero por consistencia estricta, si falla la red, el Flow original
+                // ya maneja errores de red si vienen del repositorio.
+            }
+        }
+    }
 }

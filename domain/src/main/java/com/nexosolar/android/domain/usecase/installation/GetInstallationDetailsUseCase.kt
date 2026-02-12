@@ -28,4 +28,5 @@ class GetInstallationDetailsUseCase(
         // Por ejemplo: validaciones, logging, caché, etc.
         return repository.getInstallationDetails()
     }
+
 }
