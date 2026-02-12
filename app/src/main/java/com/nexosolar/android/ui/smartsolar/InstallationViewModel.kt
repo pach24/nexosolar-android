@@ -1,9 +1,9 @@
-// File: ui/smartsolar/InstallationViewModel.kt
 package com.nexosolar.android.ui.smartsolar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.core.toTechnicalMessage
 import com.nexosolar.android.core.toUserMessage
 import com.nexosolar.android.data.util.Logger
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class InstallationViewModel(
@@ -25,7 +26,6 @@ class InstallationViewModel(
         private const val TAG = "InstallationVM"
     }
 
-    // ========== STATEFLOW (Fuente de verdad) ==========
     private val _uiState = MutableStateFlow<InstallationUIState>(InstallationUIState.Loading)
     val uiState: StateFlow<InstallationUIState> = _uiState.asStateFlow()
 
@@ -35,20 +35,19 @@ class InstallationViewModel(
         observarInstalacion()
     }
 
-    /**
-     * Sigue el mismo patrón que InvoiceViewModel.observarFacturas()
-     */
     private fun observarInstalacion() {
         collectionJob?.cancel()
         collectionJob = viewModelScope.launch {
-
             getInstallationUseCase()
                 .onStart {
-                    _uiState.value = InstallationUIState.Loading
+                    // Solo ponemos Loading si es la primera vez (no hay datos previos)
+                    if (_uiState.value !is InstallationUIState.Success) {
+                        _uiState.value = InstallationUIState.Loading
+                    }
                 }
                 .catch { error ->
-                    Logger.e(TAG, "[ERROR] Flow error: ${error.message}", error)
                     val errorType = ErrorClassifier.classify(error)
+                    Logger.e(TAG, errorType.toTechnicalMessage(), error)
                     _uiState.value = InstallationUIState.Error(
                         message = errorType.toUserMessage(),
                         type = errorType
@@ -56,35 +55,55 @@ class InstallationViewModel(
                 }
                 .collect { installation ->
                     Logger.d(TAG, "[FLOW] Received installation data")
+                    // Al recibir datos nuevos de Room, el refresh termina automáticamente (isRefreshing = false)
                     if (installation == null) {
-                        _uiState.value = InstallationUIState.Empty
+                        _uiState.value = InstallationUIState.Empty(isRefreshing = false)
                     } else {
-                        _uiState.value = InstallationUIState.Success(installation)
+                        _uiState.value = InstallationUIState.Success(installation, isRefreshing = false)
                     }
                 }
         }
     }
 
     /**
-     * Acción explícita de recarga (Swipe to Refresh).
-     * Mantenemos la lógica separada del refresh para no "ensuciar" el observer.
+     *
+     * Mantiene los datos visibles y solo activa el spinner.
      */
     fun onRefresh() {
-        viewModelScope.launch {
-            // Opcional: Si quieres mostrar loading completo como en Invoice:
-            // observarInstalacion()
+        val currentState = _uiState.value
 
-            // O MEJOR (UX Superior): Mantener los datos viejos mientras se actualiza
-            // y solo mostrar error si falla, sin borrar la pantalla.
-            try {
-                refreshInstallationUseCase()
-                // Al terminar, el Flow de observarInstalacion emitirá los nuevos datos automáticamente
-            } catch (error: Exception) {
-                Logger.e(TAG, "Error refrescando instalación", error)
-                // Aquí podrías emitir un evento One-Shot (Toast) si quisieras
-                // Pero por consistencia estricta, si falla la red, el Flow original
-                // ya maneja errores de red si vienen del repositorio.
+        // Solo permitimos refresh si estamos en Success o Empty
+        if (currentState is InstallationUIState.Success || currentState is InstallationUIState.Empty) {
+            viewModelScope.launch {
+                // 1. Activar spinner visualmente (sin borrar datos)
+                if (currentState is InstallationUIState.Success) {
+                    _uiState.update { currentState.copy(isRefreshing = true) }
+                } else if (currentState is InstallationUIState.Empty) {
+                    _uiState.update { currentState.copy(isRefreshing = true) }
+                }
+
+                // 2. Llamada de red
+                try {
+                    refreshInstallationUseCase()
+                    // Si va bien, Room se actualiza -> 'observarInstalacion' emite nuevo valor -> Spinner se apaga solo
+                } catch (error: Exception) {
+                    Logger.e(TAG, "Error refrescando instalación", error)
+
+                    // 3. Si falla, apagamos el spinner manualmente y mantenemos los datos viejos
+                    // (Opcional: aquí podrías emitir un evento OneShot para un Toast de error)
+                    if (currentState is InstallationUIState.Success) {
+                        _uiState.update { currentState.copy(isRefreshing = false) }
+                    } else if (currentState is InstallationUIState.Empty) {
+                        _uiState.update { currentState.copy(isRefreshing = false) }
+                    }
+
+                    // NOTA: Si quisieras mostrar Toast, necesitarías un Channel de efectos (SideEffects),
+                    // pero para mantenerlo simple como Invoices, solo paramos el spinner.
+                }
             }
+        } else {
+            // Si estamos en Error y damos a "Reintentar", hacemos carga completa
+            observarInstalacion()
         }
     }
 }

@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Root: FrameLayout para apilar contenido real + shimmer -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/swipeRefresh"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/white">
+    android:layout_height="match_parent">
+
+
+
+<!-- Root: FrameLayout para apilar contenido real + shimmer -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/white">
 
     <!-- 1) CONTENIDO REAL (inicialmente oculto) -->
     <androidx.core.widget.NestedScrollView
@@ -211,66 +221,81 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <!-- 2) SHIMMER (visible por defecto) -->
-    <com.facebook.shimmer.ShimmerFrameLayout
-        android:id="@+id/shimmerViewContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="visible"
-        android:importantForAccessibility="no">
-
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <!-- 2) PANTALLA DE ERROR (FALTABA ESTO) -->
+        <include
+            android:id="@+id/errorView"
+            layout="@layout/view_error_generic"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="@dimen/detail_content_padding">
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            tools:visibility="gone" />
 
-            <include
-                android:id="@+id/skeleton1"
-                layout="@layout/item_detail_skeleton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
 
-            <include
-                android:id="@+id/skeleton2"
-                layout="@layout/item_detail_skeleton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintTop_toBottomOf="@id/skeleton1"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+        <!-- 3) SHIMMER -->
+        <com.facebook.shimmer.ShimmerFrameLayout
+            android:id="@+id/shimmerViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="visible"
+            app:shimmer_auto_start="true"
+            app:shimmer_duration="1000"
+            android:importantForAccessibility="no">
 
-            <include
-                android:id="@+id/skeleton3"
-                layout="@layout/item_detail_skeleton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintTop_toBottomOf="@id/skeleton2"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="@dimen/detail_content_padding">
 
-            <include
-                android:id="@+id/skeleton4"
-                layout="@layout/item_detail_skeleton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintTop_toBottomOf="@id/skeleton3"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                <include
+                    android:id="@+id/skeleton1"
+                    layout="@layout/item_detail_skeleton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
-            <include
-                android:id="@+id/skeleton5"
-                layout="@layout/item_detail_skeleton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintTop_toBottomOf="@id/skeleton4"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+                <include
+                    android:id="@+id/skeleton2"
+                    layout="@layout/item_detail_skeleton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/skeleton1"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.facebook.shimmer.ShimmerFrameLayout>
+                <include
+                    android:id="@+id/skeleton3"
+                    layout="@layout/item_detail_skeleton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/skeleton2"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
+
+                <include
+                    android:id="@+id/skeleton4"
+                    layout="@layout/item_detail_skeleton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/skeleton3"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"/>
+
+                <!-- CORRECCIÓN AQUÍ: Quitamos constraintBottom_toBottomOf -->
+                <include
+                    android:id="@+id/skeleton5"
+                    layout="@layout/item_detail_skeleton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toBottomOf="@id/skeleton4"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+                <!-- ^^^ Ya no se va al fondo, se queda pegado al 4 -->
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.facebook.shimmer.ShimmerFrameLayout>
 
 </FrameLayout>
+
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
