@@ -54,7 +54,7 @@ The application showcases **production-ready architecture** through strict adher
 
 Key technical highlights include:
 - A robust **Offline-First** strategy using **Room** as the **Single Source of Truth (SSOT)**
-- **Reactive UI** updates utilizing **LiveData** and separation of concerns
+-  Modern **Reactive UI**: utilizing Kotlin **StateFlow** & **Coroutines** for a fully Unidirectional Data Flow (UDF), strictly adhering to Google's latest architectural recommendations.
 - A flexible networking layer supporting both **Real API (Retrofit)** and **Mocking strategies** for isolated development
 - Commitment to **Code Quality** with comprehensive **Unit Testing** (JUnit/Mockito)
 
@@ -150,7 +150,7 @@ The project follows a strict **Clean Architecture** approach combined with **MVV
 - **Dependency Injection:** ViewModels (`InvoiceViewModel`, `InstallationViewModel`) receive dependencies via a Factory, preventing tight coupling with repositories.
 
 ### 🧠 Domain Layer (Business Logic)
-- **Pure Java Module:** Completely isolated from the Android SDK.
+- **Pure Kotlin Module:** Completely isolated from the Android SDK.
 - **Use Cases:** Encapsulate specific business rules (e.g., `GetInvoicesUseCase`, `FilterInvoicesUseCase`). They orchestrate the flow between the Repository and the Presentation layer.
 - **Testability:** Being pure Java, this layer is tested continuously with fast-running JUnit tests.
 
@@ -284,15 +284,17 @@ Project with **complete unit test suite** (100% business logic coverage) using *
 
 ---
 
-## Future Enhancements
+## Future Enhancements & Roadmap
 
-This project follows an iterative improvement approach. Planned enhancements include:
+**Next Steps (Q2 2026):**
 
-### Architecture Evolution
-- **Kotlin Migration:** ✅ In Progress - Transition codebase to Kotlin for null-safety and modern Android
-- **Jetpack Compose:** Modernize UI layer with declarative UI framework (Q2 2026)
-- **Hilt/Dagger:** Replace manual dependency injection with proper DI framework
-
+1.  **Jetpack Compose Migration:** 
+    - The architecture is already "Compose-Ready" thanks to the Unidirectional Data Flow (UI State).
+    - Goal: Replace XML layouts with declarative UI components seamlessly.
+2.  **Dependency Injection (Hilt):** 
+    - Migrate from Manual DI (Factory pattern) to Hilt for compile-time safety and boilerplate reduction.
+3.  **Modularization by Feature:**
+    - Split `app` module into `feature:invoices` and `feature:smartsolar` to enforce stricter separation boundaries.
 
 
 ### Code Quality
@@ -302,6 +304,16 @@ This project follows an iterative improvement approach. Planned enhancements inc
 
 
 ---
+
+### Tech Stack Highlights
+*   **Concurrency:** Coroutines & Flow (structured concurrency).
+*   **Architecture:** Clean Architecture + MVVM + Repository Pattern.
+*   **Network:** Retrofit + OkHttp + Retromock (Custom Interceptor strategy).
+*   **Persistence:** Room (Offline-First Single Source of Truth).
+*   **Testing:** JUnit 5, Mockito.
+
+---
+
 
 ## Lessons Learned
 
