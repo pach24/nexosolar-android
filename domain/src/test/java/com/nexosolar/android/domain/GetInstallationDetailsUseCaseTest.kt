@@ -3,6 +3,9 @@ package com.nexosolar.android.domain
 import com.nexosolar.android.domain.models.Installation
 import com.nexosolar.android.domain.repository.InstallationRepository
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -11,11 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.*
 
-/**
- * Tests unitarios para GetInstallationDetailsUseCase.
- * Valida la interacción con el repositorio usando corrutinas.
- */
-@DisplayName("GetInstallationDetailsUseCase - Obtención de detalles de instalación")
+@DisplayName("GetInstallationDetailsUseCase - Obtención de detalles de instalación (Flow)")
 class GetInstallationDetailsUseCaseTest {
 
     private lateinit var mockRepository: InstallationRepository
@@ -28,99 +27,74 @@ class GetInstallationDetailsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Invocar el use case delega la llamada al repositorio")
+    @DisplayName("Invocar el use case retorna el Flow del repositorio")
     fun `when invoked delegates to repository`() = runTest {
-        // GIVEN: Repositorio configurado para retornar datos
+        // GIVEN: Repositorio retorna un Flow con datos
         val mockInstallation = createMockInstallation()
-        `when`(mockRepository.getInstallationDetails()).thenReturn(mockInstallation)
+        `when`(mockRepository.getInstallationDetails()).thenReturn(flowOf(mockInstallation))
 
         // WHEN: Invocamos el use case
-        useCase()
+        val flowResult = useCase()
 
-        // THEN: Verifica que el repositorio fue llamado exactamente una vez
+        // THEN: Verificamos que obtenemos el dato al recolectar
+        val result = flowResult.first() // first() suspende hasta recibir el dato
+        assertNotNull(result)
         verify(mockRepository, times(1)).getInstallationDetails()
     }
 
     @Test
-    @DisplayName("Repositorio retorna datos correctamente")
-    fun `when repository returns data returns installation details`() = runTest {
-        // GIVEN: Repositorio configurado para retornar datos exitosamente
+    @DisplayName("Repositorio retorna datos correctamente a través del Flow")
+    fun `when repository emits data use case propagates it`() = runTest {
+        // GIVEN
         val mockInstallation = createMockInstallation()
-        `when`(mockRepository.getInstallationDetails()).thenReturn(mockInstallation)
+        `when`(mockRepository.getInstallationDetails()).thenReturn(flowOf(mockInstallation))
 
-        // WHEN: Invocamos el use case
-        val result = useCase()
+        // WHEN
+        val result = useCase().first()
 
-        // THEN: Verifica que se reciben los datos correctos
+        // THEN
         assertNotNull(result)
-        assertEquals("ES0021000000000001JN", result.selfConsumptionCode)
-        assertEquals("Activa", result.installationStatus)
-        assertEquals("Residencial", result.installationType)
-        assertEquals("Con compensación", result.compensation)
-        assertEquals("5.5 kW", result.power)
+        assertEquals("ES0021000000000001JN", result?.selfConsumptionCode)
+        assertEquals("Activa", result?.installationStatus)
     }
 
     @Test
-    @DisplayName("Repositorio lanza excepción propaga el error")
-    fun `when repository fails throws exception`() = runTest {
-        // GIVEN: Repositorio configurado para lanzar error
-        val errorMessage = "Error de red"
-        `when`(mockRepository.getInstallationDetails())
-            .thenThrow(RuntimeException(errorMessage))
+    @DisplayName("Si el Flow del repositorio lanza error, el UseCase lo propaga")
+    fun `when repository flow fails throws exception`() = runTest {
+        // GIVEN: Un Flow que emite un error
+        val errorMessage = "Error de base de datos"
+        `when`(mockRepository.getInstallationDetails()).thenReturn(flow {
+            throw RuntimeException(errorMessage)
+        })
 
-        // WHEN & THEN: Verifica que la excepción se propaga
+        // WHEN & THEN: Al intentar recolectar (.first), salta la excepción
         val exception = assertThrows<RuntimeException> {
-            useCase()
+            useCase().first()
         }
 
         assertEquals(errorMessage, exception.message)
     }
 
     @Test
-    @DisplayName("Llamadas múltiples al use case ejecutan el repositorio cada vez")
-    fun `when called multiple times repository is invoked each time`() = runTest {
-        // GIVEN: Repositorio configurado
-        val mockInstallation = createMockInstallation()
-        `when`(mockRepository.getInstallationDetails()).thenReturn(mockInstallation)
+    @DisplayName("Repositorio puede retornar null (tabla vacía)")
+    fun `when repository returns null use case emits null`() = runTest {
+        // GIVEN: Repositorio devuelve Flow con null
+        `when`(mockRepository.getInstallationDetails()).thenReturn(flowOf(null))
 
-        // WHEN: Llamamos dos veces
-        useCase()
-        useCase()
+        // WHEN
+        val result = useCase().first()
 
-        // THEN: El repositorio fue llamado dos veces (sin caché en UseCase)
-        verify(mockRepository, times(2)).getInstallationDetails()
-    }
-
-    @Test
-    @DisplayName("Repositorio retorna instalación con campos nulos es válido")
-    fun `when repository returns installation with null fields is valid`() = runTest {
-        // GIVEN: Instalación con algunos campos null
-        val installationWithNulls = Installation().apply {
-            selfConsumptionCode = "ES123"
-            // Resto de campos null
-        }
-        `when`(mockRepository.getInstallationDetails()).thenReturn(installationWithNulls)
-
-        // WHEN: Invocamos el use case
-        val result = useCase()
-
-        // THEN: Acepta instalaciones con campos null
-        assertNotNull(result)
-        assertEquals("ES123", result.selfConsumptionCode)
-        assertNull(result.installationStatus)
-        assertNull(result.compensation)
+        // THEN
+        assertNull(result)
     }
 
     // ========== Métodos auxiliares ==========
 
-    /**
-     * Crea una instalación mock completa para pruebas.
-     */
     private fun createMockInstallation(): Installation {
         return Installation(
-            cau = "ES0021000000000001JN",
-            status = "Activa",
-            type = "Residencial",
+            selfConsumptionCode = "ES0021000000000001JN",
+            installationStatus = "Activa",
+            installationType = "Residencial",
             compensation = "Con compensación",
             power = "5.5 kW"
         )

@@ -9,10 +9,10 @@ import java.time.LocalDate
  * Incluye lógica de negocio para transformación de estados.
  */
 data class Invoice(
-    var invoiceID: Int = 0,
-    var invoiceStatus: String? = null,
-    var invoiceAmount: Float = 0f,
-    var invoiceDate: LocalDate? = null
+    val invoiceID: Int = 0,
+    val invoiceStatus: String? = null,
+    val invoiceAmount: Float = 0f,
+    val invoiceDate: LocalDate? = null
 ) : Serializable {
 
     // ===== Propiedades Computadas (Extensiones de Lógica) =====

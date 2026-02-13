@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.nexosolar.android.databinding.FragmentEnergyBinding
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Fragment que muestra métricas y estadísticas de consumo energético.
@@ -14,6 +15,7 @@ import com.nexosolar.android.databinding.FragmentEnergyBinding
  * - Renderizar gráficos de consumo/producción energética
  * - Futuro: integrar ViewModel para obtener datos históricos
  */
+@AndroidEntryPoint
 class EnergyFragment : Fragment() {
 
     // ===== Variables de instancia =====
@@ -34,7 +36,7 @@ class EnergyFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // TODO: Posible mejora: Implementar observación de LiveData con métricas energéticas
+
     }
 
     override fun onDestroyView() {

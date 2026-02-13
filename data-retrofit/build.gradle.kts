@@ -1,57 +1,43 @@
 plugins {
-
-    id("com.android.library")
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
-    // 2. Namespace obligatorio
     namespace = "com.nexosolar.android.data.remote"
     compileSdk = 35
 
     defaultConfig {
         minSdk = 24
+        consumerProguardFiles("consumer-rules.pro")
     }
+
     buildFeatures {
         buildConfig = true
     }
-    buildTypes{
+
+    buildTypes {
         release {
-
-            buildConfigField(
-                "String",
-                "API_BASE_URL",
-                "\"https://francisco-pacheco.com/api/\""
-            ) //Usé mi propia api ya que la proporcinada no funcionaba
-
-            buildConfigField(
-                "String",
-                "API_BASE_URL_2",
-                "\"https://viewnextandroid.mocklab.io/\""
-            )
+            isMinifyEnabled = false
+            buildConfigField("String", "API_BASE_URL", "\"https://francisco-pacheco.com/api/\"")
+            buildConfigField("String", "API_BASE_URL_2", "\"https://viewnextandroid.mocklab.io/\"")
         }
-
-
         debug {
             buildConfigField("String", "API_BASE_URL", "\"https://francisco-pacheco.com/api/\"")
-            buildConfigField(
-                "String",
-                "API_BASE_URL_2",
-                "\"https://viewnextandroid.mocklab.io/\""
-            )
+            buildConfigField("String", "API_BASE_URL_2", "\"https://viewnextandroid.mocklab.io/\"")
         }
     }
 
-
-
-        compileOptions {
+    compileOptions {
         isCoreLibraryDesugaringEnabled = true
-
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 }
 
@@ -59,13 +45,18 @@ dependencies {
     implementation(project(":domain"))
     implementation(project(":core"))
 
-    // Retrofit
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation(libs.androidx.core.ktx)
 
-    // Retromock
-    implementation("co.infinum:retromock:1.1.0")
-    implementation(libs.core.ktx)
+    // Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.retromock)
 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+
+    implementation(libs.javax.inject)
+
+    // Desugaring
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

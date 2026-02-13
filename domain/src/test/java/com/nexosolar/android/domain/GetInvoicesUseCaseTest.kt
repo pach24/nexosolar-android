@@ -3,6 +3,9 @@ package com.nexosolar.android.domain
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.repository.InvoiceRepository
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -17,7 +20,7 @@ import org.mockito.Mockito.`when`
 import org.mockito.kotlin.times
 import java.time.LocalDate
 
-@DisplayName("GetInvoicesUseCase - Obtención de facturas")
+@DisplayName("GetInvoicesUseCase - Obtención de facturas (Flow)")
 class GetInvoicesUseCaseTest {
 
     private lateinit var mockRepository: InvoiceRepository
@@ -32,61 +35,69 @@ class GetInvoicesUseCaseTest {
     @Test
     @DisplayName("Invocar el use case delega la llamada al repositorio")
     fun `when invoked delegates to repository`() = runTest {
-        val mockInvoices = createMockInvoices()
-        `when`(mockRepository.getInvoices()).thenReturn(mockInvoices)
+        // GIVEN
+        val mockFlow = flowOf(createMockInvoices())
+        `when`(mockRepository.getInvoices()).thenReturn(mockFlow)
 
-        useCase()
+        // WHEN
+        val result = useCase() // Asignamos el resultado
 
+        // THEN
         verify(mockRepository, times(1)).getInvoices()
+        assertEquals(mockFlow, result) // Verificamos que es el correcto
     }
 
+
     @Test
-    @DisplayName("Repositorio retorna datos correctamente")
-    fun `when repository returns data returns invoices`() = runTest {
+    @DisplayName("Repositorio emite datos correctamente")
+    fun `when repository emits data usecase flow emits invoices`() = runTest {
+        // GIVEN
         val mockInvoices = createMockInvoices()
-        `when`(mockRepository.getInvoices()).thenReturn(mockInvoices)
+        `when`(mockRepository.getInvoices()).thenReturn(flowOf(mockInvoices))
 
-        val result = useCase()
+        // WHEN
+        // Usamos .first() para obtener el primer valor emitido por el Flow
+        val result = useCase().first()
 
+        // THEN
         assertNotNull(result)
         assertEquals(2, result.size)
         assertEquals(100f, result[0].invoiceAmount, 0.01f)
     }
 
     @Test
-    @DisplayName("Repositorio lanza excepción propaga el error")
-    fun `when repository fails throws exception`() = runTest {
+    @DisplayName("Excepción en el flow se propaga correctamente")
+    fun `when flow throws exception it is propagated`() = runTest {
+        // GIVEN
         val errorMessage = "Error de red"
-        `when`(mockRepository.getInvoices()).thenThrow(RuntimeException(errorMessage))
+        // Simulamos un flow que lanza error al ser recolectado
+        `when`(mockRepository.getInvoices()).thenReturn(flow {
+            throw RuntimeException(errorMessage)
+        })
 
+        // WHEN & THEN
         val exception = assertThrows<RuntimeException> {
-            useCase()
+            useCase().first()
         }
 
         assertEquals(errorMessage, exception.message)
     }
 
     @Test
-    @DisplayName("Refresh delega la llamada al repositorio")
-    fun `when refresh is called delegates to repository refresh`() = runTest {
-        `when`(mockRepository.refreshInvoices()).thenReturn(Unit)
-
-        useCase.refresh()
-
-        verify(mockRepository, times(1)).refreshInvoices()
-    }
-
-    @Test
     @DisplayName("Lista vacía es retornada correctamente")
     fun `when repository returns empty list returns empty list`() = runTest {
-        `when`(mockRepository.getInvoices()).thenReturn(emptyList())
+        // GIVEN
+        `when`(mockRepository.getInvoices()).thenReturn(flowOf(emptyList()))
 
-        val result = useCase()
+        // WHEN
+        val result = useCase().first()
 
+        // THEN
         assertNotNull(result)
         assertTrue(result.isEmpty())
     }
 
+    // Método helper para crear datos de prueba (basado en TU modelo actual)
     private fun createMockInvoices(): List<Invoice> {
         return listOf(
             Invoice(
@@ -94,6 +105,7 @@ class GetInvoicesUseCaseTest {
                 invoiceAmount = 100f,
                 invoiceStatus = "Pagada",
                 invoiceDate = LocalDate.of(2025, 1, 1)
+                // Eliminados campos extra que no tienes
             ),
             Invoice(
                 invoiceID = 2,

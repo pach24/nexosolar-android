@@ -1,28 +1,39 @@
 plugins {
-    id("java-library")
-    alias(libs.plugins.kotlin.jvm)  // ✅ Usa la versión del catálogo (2.0.21)
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
+android {
+    namespace = "com.nexosolar.android.core"
+    compileSdk = 35 // Asegúrate de que coincida con el de tu módulo :app
 
-kotlin {
-    jvmToolchain(11)
+    defaultConfig {
+        minSdk = 24 // Asegúrate de que coincida con el de tu módulo :app
+
+        // El test runner es necesario para ejecutar tests instrumentados (si los hubiera)
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
-    // ✅ Kotlin 2.0+ necesita stdlib-jdk8 para extension functions
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")  // Sin versión (hereda 2.0.21)
-    implementation(libs.annotations)
+    implementation(libs.gson)
 
     // Testing
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.1")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")  // Sin versión
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.jupiter.params)
+    testRuntimeOnly(libs.junit.jupiter.engine)
 }
 
-tasks.test {
+// Configuración de JUnit 5
+tasks.withType<Test> {
     useJUnitPlatform()
 }

@@ -1,173 +1,296 @@
 package com.nexosolar.android.ui.invoices
 
-import com.nexosolar.android.core.toUserMessage
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.DateUtils
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
+import com.nexosolar.android.domain.models.maxAmount
+import com.nexosolar.android.domain.models.minAmount
+import com.nexosolar.android.domain.models.newestDate
+import com.nexosolar.android.domain.models.oldestDate
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
-import com.nexosolar.android.ui.invoices.managers.InvoiceDataManager
-import com.nexosolar.android.ui.invoices.managers.InvoiceFilterManager
-import com.nexosolar.android.ui.invoices.managers.InvoiceStateManager
-import com.nexosolar.android.ui.invoices.managers.InvoiceStatisticsCalculator
+import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.debounce
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
+import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
-class InvoiceViewModel(
-    getInvoicesUseCase: GetInvoicesUseCase,
-    filterInvoicesUseCase: FilterInvoicesUseCase
+/**
+ * ViewModel reactivo para la gestión de facturas usando StateFlow.
+ *
+ * MIGRACIÓN A STATEFLOW:
+ * - Reemplaza LiveData con StateFlow (estándar moderno).
+ * - Consume el Flow del UseCase de forma reactiva.
+ * - Centraliza el estado en InvoiceUiState (sealed interface).
+ */
+
+@HiltViewModel
+class InvoiceViewModel @Inject constructor(
+    private val getInvoicesUseCase: GetInvoicesUseCase,
+    private val filterInvoicesUseCase: FilterInvoicesUseCase,
+    private val refreshInvoicesUseCase: RefreshInvoicesUseCase
 ) : ViewModel() {
 
-    // Managers
-    private val dataManager = InvoiceDataManager(getInvoicesUseCase)
-    private val filterManager = InvoiceFilterManager(filterInvoicesUseCase)
-    private val stateManager = InvoiceStateManager()
-    private val statisticsCalculator = InvoiceStatisticsCalculator()
+    private companion object {
+        private const val TAG = "InvoiceVM"
+    }
 
-    private var isFirstLoad = true
+
+    // ========== STATEFLOWS (Fuente de verdad) ==========
+
+    // Estado principal de la UI (Carga, Éxito, Error)
+    private val _uiState = MutableStateFlow<InvoiceUIState>(InvoiceUIState.Loading)
+    val uiState: StateFlow<InvoiceUIState> = _uiState.asStateFlow()
+
+    // Estado de filtros (separado porque es independiente del estado de carga de la lista)
+    private val _filterState = MutableStateFlow(InvoiceFilterUIState())
+    val filterState: StateFlow<InvoiceFilterUIState> = _filterState.asStateFlow()
+
+    // Copia local para filtrado rápido sin volver a BD
+    private var originalInvoices: List<Invoice> = emptyList()
+
+    // Job de recolección para poder cancelarlo/reiniciarlo si fuera necesario
+    private var collectionJob: Job? = null
 
     init {
-        cargarFacturas()
+        observarFacturas()
     }
 
-    val facturas: LiveData<List<Invoice>> = dataManager.invoices
-    val viewState: LiveData<InvoiceStateManager.ViewState> = stateManager.currentState
-    val filtrosActuales: LiveData<InvoiceFilters> = filterManager.currentFilters
+    /**
+     * Se suscribe al Flow de facturas del dominio.
+     * Cualquier cambio en Room actualizará automáticamente la UI.
+     */
+    private fun observarFacturas() {
+        // Cancelamos cualquier job previo para evitar fugas o múltiples suscripciones
+        collectionJob?.cancel()
 
+        collectionJob = viewModelScope.launch {
+            // OJO: No pongas _uiState.value = Loading aquí si quieres que el SwipeRefresh
+            // se vea fluido. El SwipeRefresh ya gestiona su estado visual.
 
-    val errorValidacion: LiveData<String?> = filterManager.validationError
-    val errorMessage: LiveData<String?> = stateManager.errorMessage
-    val showEmptyError: LiveData<Boolean> = stateManager.showEmptyError
-
-
-
-    fun cargarFacturas() {
-        stateManager.showLoading()
-
-        // Lanzamos una corrutina en el scope del ViewModel
-        viewModelScope.launch {
-            try {
-                val result = dataManager.loadInvoices()
-                isFirstLoad = false
-                if (result.isEmpty()) {
-                    stateManager.showEmpty()
-                } else {
-                    filterManager.resetFilters(result)
-                    stateManager.showData()
+            getInvoicesUseCase()
+                .debounce(300.milliseconds) // 1. Frena actualizaciones locas de Room
+                .catch { error ->
+                    Logger.e(TAG, "[ERROR] Flow error: ${error.message}", error)
+                    val errorType = ErrorClassifier.classify(error)
+                    _uiState.value = InvoiceUIState.Error(
+                        message = errorType.toUserMessage(),
+                        type = errorType
+                    )
                 }
+                .collect { invoices ->
+                    Logger.d("DEBUG_FLOW", "🔥 Recibida lista con ${invoices.size} facturas. Hash: ${invoices.hashCode()}")
+                    // 2. Guardamos siempre la lista cruda (Fuente de verdad local)
+                    originalInvoices = invoices
 
-            } catch (e: Exception) {
-                // Cualquier error que caiga en onError del UseCase caerá aquí automáticamente
-                isFirstLoad = false
-                handleLoadError(e)
-            }
-        }
-    }
+                    if (invoices.isEmpty()) {
+                        // Si la BD está vacía, mostramos Empty y apagamos el spinner
+                        _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
+                    } else {
+                        // 3. LÓGICA CRÍTICA: Actualizar Stats + Conservar Filtros
+                        // Esto evita el "Flashazo" de ver la lista sin filtros
+                        actualizarEstadoFiltrosSinPerderSeleccion(invoices)
 
-    fun actualizarFiltros(filters: InvoiceFilters) {
-        filterManager.updateFilters(filters)
-        stateManager.showLoading()
-
-        viewModelScope.launch {
-            delay(300)
-            val filtered = withContext(Dispatchers.Default) {
-                // Procesamiento pesado en hilo de cómputo
-                filterManager.applyCurrentFilters(dataManager.originalInvoices)
-            }
-
-            dataManager.setInvoices(filtered)
-
-            if (filtered.isEmpty()) {
-                stateManager.showEmpty()
-            } else {
-                stateManager.showData()
-            }
-        }
-    }
-
-    fun resetearFiltros() {
-        val original = dataManager.originalInvoices
-        filterManager.resetFilters(original)
-        dataManager.setInvoices(original)
-        stateManager.showData()
-    }
-
-    fun actualizarEstadoFiltros(filters: InvoiceFilters) {
-        filterManager.updateFilters(filters)
-    }
-
-    // Delegación a StatisticsCalculator
-    fun getMaxImporte(): Float = statisticsCalculator.calculateMaxAmount(dataManager.originalInvoices)
-    fun getOldestDate(): LocalDate? = statisticsCalculator.calculateOldestDate(dataManager.originalInvoices)
-    fun getNewestDate(): LocalDate? = statisticsCalculator.calculateNewestDate(dataManager.originalInvoices)
-
-    fun hayDatosCargados(): Boolean = dataManager.originalInvoices.isNotEmpty()
-    fun hayFiltrosActivos(): Boolean = filterManager.hasActiveFilters()
-
-    private fun handleLoadError(error: Throwable) {
-        // Si hay caché, mostramos los datos y salimos
-        if (dataManager.hasCachedData()) {
-            stateManager.showData()
-            return
-        }
-
-        // Clasificamos el error (ahora devuelve una sealed class)
-        when (val errorType = ErrorClassifier.classify(error)) {
-            is ErrorClassifier.ErrorType.Network -> {
-                viewModelScope.launch {
-                    delay(3000) // Delay antes de mostrar el error de red
-                    stateManager.showNetworkError(errorType.toUserMessage())
+                        // 4. Aplicar los filtros a la lista y actualizar UI
+                        aplicarFiltrosInterno()
+                    }
                 }
-            }
-
-            is ErrorClassifier.ErrorType.Server -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
-
-            is ErrorClassifier.ErrorType.Unknown -> {
-                stateManager.showServerError(errorType.toUserMessage())
-            }
         }
     }
 
+    /**
+     * Helper para recalcular estadísticas (nuevos máximos/fechas)
+     * PERO respetando lo que el usuario ya tenía seleccionado.
+     */
+    private fun actualizarEstadoFiltrosSinPerderSeleccion(invoices: List<Invoice>) {
+        val currentUI = _filterState.value
+        val oldFilters = currentUI.filters
+        val oldStats = currentUI.statistics
 
+        // A. Calculamos las nuevas estadísticas de la data fresca
+        val newMaxAmount = invoices.maxAmount()
+        val newOldest = invoices.oldestDate()
+        val newNewest = invoices.newestDate()
 
-    fun aplicarFiltrosSeleccionados(estados: List<String>, min: Double, max: Double) {
-
-        // Obtenemos el filtro actual o creamos uno nuevo
-        val filtroActual = filtrosActuales.value ?: InvoiceFilters()
-
-        // CAMBIO 3: Usamos copy() para crear una nueva instancia inmutable
-        // en lugar de reasignar propiedades con setters (nuevosFiltros.minAmount = ...)
-        val nuevosFiltros = filtroActual.copy(
-            filteredStates = estados.toSet(), // Convertimos List -> Set
-            minAmount = min.toFloat(),        // Convertimos Double -> Float
-            maxAmount = max.toFloat()         // Convertimos Double -> Float
+        val newStats = InvoiceFilterUIState.FilterStatistics(
+            maxAmount = newMaxAmount,
+            oldestDateMillis = DateUtils.toEpochMilli(newOldest),
+            newestDateMillis = DateUtils.toEpochMilli(newNewest)
         )
 
-        // Delegamos al manager
-        filterManager.updateFilters(nuevosFiltros)
+        // B. Decidimos qué filtros aplicar
+        val filtersToKeep = if (oldFilters == null) {
+            // Caso 1: Primera carga (no había filtros) -> Filtros por defecto (Todo abierto)
+            InvoiceFilters(
+                minAmount = 0f,
+                maxAmount = newMaxAmount, // El slider va al tope
+                startDate = null,
+                endDate = null,
+                filteredStates = emptySet()
+            )
+        } else {
+            // Caso 2: Ya había filtros (ej. "Solo Pagadas" o slider a la mitad)
 
-        // Ejecutamos el filtrado
-        actualizarFiltros(nuevosFiltros)
+            // Truco de UX: Si el slider estaba al MÁXIMO anterior, lo movemos al NUEVO MÁXIMO.
+            // Si el usuario lo había bajado (ej. a 50€), lo respetamos y lo dejamos en 50€.
+            val wasSliderAtMax = oldFilters.maxAmount == null ||
+                    (oldFilters.maxAmount!! >= oldStats.maxAmount - 0.1f)
+
+            val adjustedMaxAmount = if (wasSliderAtMax) newMaxAmount else oldFilters.maxAmount
+
+            // Copiamos los filtros viejos con el importe ajustado
+            oldFilters.copy(
+                maxAmount = adjustedMaxAmount
+                // Las fechas y los estados (pagadas/pendientes) SE MANTIENEN IGUAL
+            )
+        }
+
+        // C. Actualizamos el estado de filtros SILENCIOSAMENTE (sin disparar UI todavía)
+        _filterState.value = InvoiceFilterUIState(
+            filters = filtersToKeep,
+            statistics = newStats,
+            isApplying = false
+        )
     }
 
-    fun getOldestDateMillis(): Long {
-        val date = this.getOldestDate()
-        return DateUtils.toEpochMilli(date)
+
+    /**
+     * Actualiza los filtros temporalmente (UI updates).
+     */
+    fun updateFilters(filters: InvoiceFilters) {
+        val normalized = filters.normalize()
+        _filterState.update { it.copy(filters = normalized) }
     }
 
-    fun getNewestDateMillis(): Long {
-        val date = this.getNewestDate()
-        return DateUtils.toEpochMilli(date)
+    /**
+     * Aplica los filtros actuales a la lista.
+     */
+    fun applyFilters() {
+        viewModelScope.launch {
+            _filterState.update { it.copy(isApplying = true) }
+
+            aplicarFiltrosInterno()
+            _filterState.update { it.copy(isApplying = false) }
+        }
     }
 
-    fun esEstadoError() = stateManager.isError()
+
+    // ========== LÓGICA PRIVADA ==========
+
+    private fun aplicarFiltrosInterno() {
+        val currentFilters = filterState.value.filters
+
+        val filteredList = if (currentFilters == null) {
+            originalInvoices
+        } else {
+            filterInvoicesUseCase(originalInvoices, currentFilters)
+        }
+
+        // ✅ Evita parpadeo al cambiar de Empty a Success
+        if (filteredList.isEmpty()) {
+            _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
+        } else {
+            // ✅ Solo actualiza si la lista cambió (reduce re-renderizados)
+            val current = uiState.value
+            if (current !is InvoiceUIState.Success || current.invoices != filteredList) {
+                _uiState.value = InvoiceUIState.Success(
+                    invoices = filteredList,
+                    isRefreshing = false
+                )
+            }
+        }
+    }
+
+
+
+    // Helper para compatibilidad con código legacy de errores
+    private fun ErrorClassifier.ErrorType.toUserMessage(): String {
+        // Implementación simple o importar tu extensión
+        return when (this) {
+            is ErrorClassifier.ErrorType.Network -> "Error de conexión"
+            is ErrorClassifier.ErrorType.Server -> "Error del servidor"
+            else -> "Error desconocido"
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            // 1. Pones Loading -> Shimmer sale y borra lista
+            _uiState.value = InvoiceUIState.Loading
+
+            try {
+                // 2. Llamas al UseCase -> Room se actualiza -> Flow de 'observarFacturas' emite
+                refreshInvoicesUseCase()
+            } catch (e: Exception) {
+                // 3. ¡SI FALLA LA RED, TE QUEDAS EN LOADING!
+                // Como has puesto Loading arriba, y el Flow no va a emitir nada nuevo si falla el refresh,
+                // la pantalla se quedará blanca para siempre.
+
+                // FIX: Si falla, tienes que volver a pintar lo que tenías antes
+                // o llamar a observarFacturas() para restaurar el estado.
+
+                Logger.e(TAG, "Refresh failed", e)
+
+                // Lo más seguro si quieres Shimmer es reiniciar la observación,
+                // que ya gestiona errores y estados por ti.
+                observarFacturas()
+            }
+        }
+    }
+    // InvoiceViewModel - The "Clean" Way
+
+    /**
+     * SOFT REFRESH: Mantiene la lista visible y actualiza en segundo plano.
+     */
+    fun onSwipeRefresh() {
+        val currentState = _uiState.value
+
+        // Solo permitimos refrescar si ya tenemos datos o está vacío (no en error o loading inicial)
+        if (currentState is InvoiceUIState.Success || currentState is InvoiceUIState.Empty) {
+            viewModelScope.launch {
+                // 1. Solo actualizamos el flag visual de la ruedita, NO tocamos la lista
+                // Usamos update para asegurar atomicidad
+                _uiState.update {
+                    when (it) {
+                        is InvoiceUIState.Success -> it.copy(isRefreshing = true)
+                        is InvoiceUIState.Empty -> it.copy(isRefreshing = true)
+                        else -> it
+                    }
+                }
+
+                try {
+                    // 2. Llamada a red. NO tocamos _uiState aquí manualmente.
+                    // Cuando Room se actualice, 'observarFacturas' emitirá el nuevo Success
+                    // y ahí pondremos isRefreshing = false automáticamente (si tu UIState por defecto lo tiene false)
+                    refreshInvoicesUseCase()
+                } catch (e: Exception) {
+                    // 3. Solo si falla, apagamos la ruedita manualmente
+                    _uiState.update {
+                        when (it) {
+                            is InvoiceUIState.Success -> it.copy(isRefreshing = false)
+                            is InvoiceUIState.Empty -> it.copy(isRefreshing = false)
+                            else -> it
+                        }
+                    }
+                    // Opcional: Mostrar error one-shot (Snackbar)
+                }
+            }
+        }
+    }
+
 }
