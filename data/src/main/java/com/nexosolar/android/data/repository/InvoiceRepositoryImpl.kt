@@ -54,15 +54,18 @@ class InvoiceRepositoryImpl @Inject constructor(
         // Modo Producción (Pure Flow)
         return localDataSource.getAllInvoices() // Fuente de verdad única
             .map { entities ->
+                Logger.d("InvoiceRepo", "Emitting ${entities.size} invoices from Room (Cache)")
                 mapper.toDomainList(entities)
             }
             .onStart {
                 // Actualización lateral (side-effect)
                 // Si falla la red, capturamos aquí para NO romper el Flow de Room
+                Logger.d("InvoiceRepo", "Triggering network fetch...")
                 try {
                     fetchAndCacheInvoices()
+                    Logger.d("InvoiceRepo", "Network fetch success. Data saved to Room.")
                 } catch (e: Exception) {
-                    Logger.e(TAG, "[NETWORK] Background update failed: ${e.message}")
+                    Logger.e("InvoiceRepo", "Network fetch failed: ${e.message}")
                     val isCacheEmpty = localDataSource.isCacheEmpty()
 
                     if (isCacheEmpty) {
