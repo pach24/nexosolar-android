@@ -30,6 +30,8 @@ interface ApiService {
      */
     @Mock
     @MockCircular
+    //@MockResponse(body = "facturas_invierno.json")
+    //@MockResponse(body = "facturas_verano.json")
     @MockResponse(body = "facturas_500.json")
     @MockResponse(body = "facturas_todas_impagadas.json")
     @MockResponse(body = "facturas_algunas_pagadas.json")

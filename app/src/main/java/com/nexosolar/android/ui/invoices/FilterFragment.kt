@@ -89,8 +89,25 @@ class FilterFragment : Fragment() {
 
             btnAplicar.setOnClickListener { applyFilters() }
             btnBorrar.setOnClickListener {
-                viewModel.resetearFiltros()
-                closeFragment() // Opcional: cerrar al resetear
+                // 1. Obtenemos el valor máximo real del ViewModel para reiniciar el slider correctamente
+                val currentStats = viewModel.filterState.value.statistics
+
+                // 2. Creamos unos filtros "limpios" (sin fechas, sin estados, rango completo)
+                val cleanFilters = InvoiceFilters(
+                    minAmount = 0f,
+                    maxAmount = currentStats.maxAmount, // Importante: volver al tope real
+                    startDate = null,
+                    endDate = null,
+                    filteredStates = emptySet()
+                )
+
+                // 3. Actualizamos la variable temporal del fragmento
+                tempFilters = cleanFilters
+
+                // 4. Forzamos el repintado de la pantalla con estos datos limpios
+                // Truco: Creamos un estado "ficticio" temporal solo para que renderUI sepa qué pintar
+                val dummyState = viewModel.filterState.value.copy(filters = cleanFilters)
+                renderUI(dummyState)
             }
             btnCerrar.setOnClickListener { closeFragment() }
         }
@@ -207,31 +224,54 @@ class FilterFragment : Fragment() {
     }
 
     private fun showDatePicker(isStartDate: Boolean) {
-        // ✅ CAMBIO: Acceso directo a .value de StateFlow
         val uiState = viewModel.filterState.value
+        // Usamos tempFilters si existe, si no los del estado
+        val currentFilters = tempFilters ?: uiState.filters
 
-        val (validationMin, validationMax) = if (isStartDate) {
-            uiState.getStartDateConstraints()
+        // --- 1. Definir Límites (Constraints) ---
+        val minDateAllowed = uiState.statistics.oldestDateMillis
+        val maxDateAllowed = uiState.statistics.newestDateMillis
+
+        // (Opcional) Ajustar límites según la OTRA fecha ya seleccionada
+        // Ej: Si elijo Fin, el mínimo no es oldestDate, es startDate (si existe)
+        val validationMin = if (!isStartDate && currentFilters.startDate != null) {
+            DateUtils.toEpochMilli(currentFilters.startDate).coerceAtLeast(minDateAllowed)
+        } else minDateAllowed
+
+        val validationMax = if (isStartDate && currentFilters.endDate != null) {
+            DateUtils.toEpochMilli(currentFilters.endDate).coerceAtMost(maxDateAllowed)
+        } else maxDateAllowed
+
+
+        // --- 2. Definir Selección Inicial (Segura) ---
+        val rawSelection = if (isStartDate) {
+            currentFilters.startDate?.let { DateUtils.toEpochMilli(it) }
         } else {
-            uiState.getEndDateConstraints()
+            currentFilters.endDate?.let { DateUtils.toEpochMilli(it) }
         }
 
-        val initialSelection = if (isStartDate) {
-            uiState.getStartDateInitialSelection()
+        // CLAVE: Si la fecha seleccionada cae FUERA del rango permitido, hacemos fallback
+        // Esto evita el crash y muestra el calendario en una fecha válida
+        val safeSelection = if (rawSelection != null && rawSelection in minDateAllowed..maxDateAllowed) {
+            rawSelection
         } else {
-            uiState.getEndDateInitialSelection()
+            // Fallback inteligente:
+            // Si es Fecha Inicio -> Pon el foco en el día más antiguo disponible
+            // Si es Fecha Fin -> Pon el foco en el día más reciente disponible
+            if (isStartDate) minDateAllowed else maxDateAllowed
         }
 
+        // --- 3. Construir Picker ---
         val constraints = CalendarConstraints.Builder()
-            .setStart(uiState.statistics.oldestDateMillis)
-            .setEnd(uiState.statistics.newestDateMillis)
-            .setValidator(RangeValidator(validationMin, validationMax))
+            .setStart(minDateAllowed)
+            .setEnd(maxDateAllowed)
+            .setValidator(RangeValidator(validationMin, validationMax)) // Tu validador custom
             .build()
 
         val picker = MaterialDatePicker.Builder.datePicker()
             .setTitleText(if (isStartDate) "Seleccionar Inicio" else "Seleccionar Fin")
             .setCalendarConstraints(constraints)
-            .setSelection(initialSelection)
+            .setSelection(safeSelection) // ¡Usamos la fecha segura!
             .build()
 
         picker.addOnPositiveButtonClickListener { selectedMillis ->
@@ -240,6 +280,7 @@ class FilterFragment : Fragment() {
 
         picker.show(parentFragmentManager, "DATE_PICKER")
     }
+
 
     private fun handleDateSelected(dateMillis: Long, isStartDate: Boolean) {
         val selectedDate = Instant.ofEpochMilli(dateMillis)

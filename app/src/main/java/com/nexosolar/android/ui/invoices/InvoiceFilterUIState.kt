@@ -74,8 +74,7 @@ data class InvoiceFilterUIState(
      * @return Milisegundos de la fecha a preseleccionar
      */
     fun getEndDateInitialSelection(): Long {
-        return DateUtils.toEpochMilli(filters.endDate)
-            .takeIf { it != 0L }
+        return filters.endDate?.let { DateUtils.toEpochMilli(it) }
             ?: statistics.newestDateMillis
     }
 }

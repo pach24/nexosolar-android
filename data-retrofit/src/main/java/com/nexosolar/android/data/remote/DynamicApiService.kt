@@ -14,6 +14,10 @@ class DynamicApiService @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ApiService {
 
+    init {
+        ApiClientManager.init(context) // Inicializar una sola vez al crear el Proxy
+    }
+
     // Necesitamos leer las preferencias para saber qué modo usar
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences("RepoPrefs", Context.MODE_PRIVATE)
@@ -28,8 +32,6 @@ class DynamicApiService @Inject constructor(
 
 
             Logger.d("DynamicApi", "Using service: Mock=$useMock, AltUrl=$useAltUrl")
-            // Aseguramos que el manager esté init
-            ApiClientManager.init(context)
             return ApiClientManager.getApiService(useMock, useAltUrl)
         }
 

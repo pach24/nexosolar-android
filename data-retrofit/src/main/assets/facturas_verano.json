@@ -1,0 +1,15 @@
+{
+  "numFacturas": 2,
+  "facturas": [
+    {
+      "descEstado": "Pagada",
+      "fecha": "20/07/2024",
+      "importeOrdenacion": 200.00
+    },
+    {
+      "descEstado": "Plan de pago",
+      "fecha": "05/08/2024",
+      "importeOrdenacion": 150.00
+    }
+  ]
+}
