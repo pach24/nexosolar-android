@@ -22,10 +22,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.debounce
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ViewModel reactivo para la gestión de facturas usando StateFlow.
@@ -46,8 +49,6 @@ class InvoiceViewModel @Inject constructor(
     private companion object {
         private const val TAG = "InvoiceVM"
     }
-
-
 
 
     // ========== STATEFLOWS (Fuente de verdad) ==========
@@ -75,48 +76,97 @@ class InvoiceViewModel @Inject constructor(
      * Cualquier cambio en Room actualizará automáticamente la UI.
      */
     private fun observarFacturas() {
+        // Cancelamos cualquier job previo para evitar fugas o múltiples suscripciones
         collectionJob?.cancel()
+
         collectionJob = viewModelScope.launch {
-            _uiState.value = InvoiceUIState.Loading
+            // OJO: No pongas _uiState.value = Loading aquí si quieres que el SwipeRefresh
+            // se vea fluido. El SwipeRefresh ya gestiona su estado visual.
 
             getInvoicesUseCase()
+                .debounce(300.milliseconds) // 1. Frena actualizaciones locas de Room
                 .catch { error ->
                     Logger.e(TAG, "[ERROR] Flow error: ${error.message}", error)
                     val errorType = ErrorClassifier.classify(error)
                     _uiState.value = InvoiceUIState.Error(
-                        message = errorType.toUserMessage(), // Asegúrate de tener esta extension o usa string directo
+                        message = errorType.toUserMessage(),
                         type = errorType
                     )
                 }
                 .collect { invoices ->
-                    // 1. Guardamos la nueva lista cruda
+                    Logger.d("DEBUG_FLOW", "🔥 Recibida lista con ${invoices.size} facturas. Hash: ${invoices.hashCode()}")
+                    // 2. Guardamos siempre la lista cruda (Fuente de verdad local)
                     originalInvoices = invoices
 
                     if (invoices.isEmpty()) {
-                        _uiState.value = InvoiceUIState.Empty()
+                        // Si la BD está vacía, mostramos Empty y apagamos el spinner
+                        _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
                     } else {
-                        // 2. LÓGICA DE PERSISTENCIA CORREGIDA
-                        val currentStats = _filterState.value.statistics
-                        val currentFilters = _filterState.value.filters
+                        // 3. LÓGICA CRÍTICA: Actualizar Stats + Conservar Filtros
+                        // Esto evita el "Flashazo" de ver la lista sin filtros
+                        actualizarEstadoFiltrosSinPerderSeleccion(invoices)
 
-                        // Solo inicializamos si NO hay estadísticas previas (primera carga)
-                        // O si queremos recalcular máximos pero MANTENIENDO la selección del usuario
-                        if (currentStats.maxAmount == 0f) {
-                            // Caso 1: Primera vez absoluta -> Creamos todo de cero
-                            initializeFilterState(invoices)
-                        } else {
-                            // Caso 2: Ya existían filtros -> Actualizamos solo las estadísticas (nuevos rangos de fecha/importe)
-                            // pero NO tocamos 'currentFilters' (lo que el usuario seleccionó)
-                            updateStatisticsOnly(invoices)
-                        }
-
-                        // 3. Aplicamos los filtros que tenga guardados (o los nuevos por defecto)
+                        // 4. Aplicar los filtros a la lista y actualizar UI
                         aplicarFiltrosInterno()
                     }
                 }
         }
     }
 
+    /**
+     * Helper para recalcular estadísticas (nuevos máximos/fechas)
+     * PERO respetando lo que el usuario ya tenía seleccionado.
+     */
+    private fun actualizarEstadoFiltrosSinPerderSeleccion(invoices: List<Invoice>) {
+        val currentUI = _filterState.value
+        val oldFilters = currentUI.filters
+        val oldStats = currentUI.statistics
+
+        // A. Calculamos las nuevas estadísticas de la data fresca
+        val newMaxAmount = invoices.maxAmount()
+        val newOldest = invoices.oldestDate()
+        val newNewest = invoices.newestDate()
+
+        val newStats = InvoiceFilterUIState.FilterStatistics(
+            maxAmount = newMaxAmount,
+            oldestDateMillis = DateUtils.toEpochMilli(newOldest),
+            newestDateMillis = DateUtils.toEpochMilli(newNewest)
+        )
+
+        // B. Decidimos qué filtros aplicar
+        val filtersToKeep = if (oldFilters == null) {
+            // Caso 1: Primera carga (no había filtros) -> Filtros por defecto (Todo abierto)
+            InvoiceFilters(
+                minAmount = 0f,
+                maxAmount = newMaxAmount, // El slider va al tope
+                startDate = null,
+                endDate = null,
+                filteredStates = emptySet()
+            )
+        } else {
+            // Caso 2: Ya había filtros (ej. "Solo Pagadas" o slider a la mitad)
+
+            // Truco de UX: Si el slider estaba al MÁXIMO anterior, lo movemos al NUEVO MÁXIMO.
+            // Si el usuario lo había bajado (ej. a 50€), lo respetamos y lo dejamos en 50€.
+            val wasSliderAtMax = oldFilters.maxAmount == null ||
+                    (oldFilters.maxAmount!! >= oldStats.maxAmount - 0.1f)
+
+            val adjustedMaxAmount = if (wasSliderAtMax) newMaxAmount else oldFilters.maxAmount
+
+            // Copiamos los filtros viejos con el importe ajustado
+            oldFilters.copy(
+                maxAmount = adjustedMaxAmount
+                // Las fechas y los estados (pagadas/pendientes) SE MANTIENEN IGUAL
+            )
+        }
+
+        // C. Actualizamos el estado de filtros SILENCIOSAMENTE (sin disparar UI todavía)
+        _filterState.value = InvoiceFilterUIState(
+            filters = filtersToKeep,
+            statistics = newStats,
+            isApplying = false
+        )
+    }
 
 
     /**
@@ -139,62 +189,39 @@ class InvoiceViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Resetea filtros y muestra lista original.
-     */
-    fun resetearFiltros() {
-        if (originalInvoices.isNotEmpty()) {
-            initializeFilterState(originalInvoices)
-            aplicarFiltrosInterno()
-        }
-    }
 
     // ========== LÓGICA PRIVADA ==========
 
     private fun aplicarFiltrosInterno() {
-        val currentFilters = _filterState.value.filters
+        val currentFilters = filterState.value.filters
 
-        // Si no hay filtros, mostramos la lista completa (originalInvoices)
-        // Si HAY filtros, usamos el UseCase sobre la lista NUEVA (originalInvoices)
         val filteredList = if (currentFilters == null) {
             originalInvoices
         } else {
             filterInvoicesUseCase(originalInvoices, currentFilters)
         }
 
-        _uiState.value = if (filteredList.isEmpty()) {
-            InvoiceUIState.Empty() // O un estado EmptyFiltered si quieres diferenciar
+        // ✅ Evita parpadeo al cambiar de Empty a Success
+        if (filteredList.isEmpty()) {
+            _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
         } else {
-            InvoiceUIState.Success(filteredList)
+            // ✅ Solo actualiza si la lista cambió (reduce re-renderizados)
+            val current = uiState.value
+            if (current !is InvoiceUIState.Success || current.invoices != filteredList) {
+                _uiState.value = InvoiceUIState.Success(
+                    invoices = filteredList,
+                    isRefreshing = false
+                )
+            }
         }
     }
 
-    private fun initializeFilterState(invoices: List<Invoice>) {
-        val maxAmount = invoices.maxAmount()
-        val oldest = invoices.oldestDate()
-        val newest = invoices.newestDate()
 
-        _filterState.value = InvoiceFilterUIState(
-            filters = InvoiceFilters(
-                minAmount = 0f,
-                maxAmount = maxAmount,
-                startDate = null,
-                endDate = null,
-                filteredStates = emptySet()
-            ),
-            statistics = InvoiceFilterUIState.FilterStatistics(
-                maxAmount = maxAmount,
-                oldestDateMillis = DateUtils.toEpochMilli(oldest),
-                newestDateMillis = DateUtils.toEpochMilli(newest)
-            ),
-            isApplying = false
-        )
-    }
 
     // Helper para compatibilidad con código legacy de errores
     private fun ErrorClassifier.ErrorType.toUserMessage(): String {
         // Implementación simple o importar tu extensión
-        return when(this) {
+        return when (this) {
             is ErrorClassifier.ErrorType.Network -> "Error de conexión"
             is ErrorClassifier.ErrorType.Server -> "Error del servidor"
             else -> "Error desconocido"
@@ -239,7 +266,7 @@ class InvoiceViewModel @Inject constructor(
                 // 1. Solo actualizamos el flag visual de la ruedita, NO tocamos la lista
                 // Usamos update para asegurar atomicidad
                 _uiState.update {
-                    when(it) {
+                    when (it) {
                         is InvoiceUIState.Success -> it.copy(isRefreshing = true)
                         is InvoiceUIState.Empty -> it.copy(isRefreshing = true)
                         else -> it
@@ -254,7 +281,7 @@ class InvoiceViewModel @Inject constructor(
                 } catch (e: Exception) {
                     // 3. Solo si falla, apagamos la ruedita manualmente
                     _uiState.update {
-                        when(it) {
+                        when (it) {
                             is InvoiceUIState.Success -> it.copy(isRefreshing = false)
                             is InvoiceUIState.Empty -> it.copy(isRefreshing = false)
                             else -> it
@@ -265,57 +292,5 @@ class InvoiceViewModel @Inject constructor(
             }
         }
     }
-
-    private fun updateStatisticsOnly(invoices: List<Invoice>) {
-        val newMaxAmount = invoices.maxAmount()
-        val newOldest = invoices.oldestDate()
-        val newNewest = invoices.newestDate()
-
-        _filterState.update { currentState ->
-            val oldFilters = currentState.filters
-
-            // --- LÓGICA DE IMPORTE (Ya vista) ---
-            val wasMaxAmountSelected = oldFilters.maxAmount == null ||
-                    (oldFilters.maxAmount!! >= currentState.statistics.maxAmount - 0.1f)
-
-            val newFilterMaxAmount = if (wasMaxAmountSelected) newMaxAmount else oldFilters.maxAmount
-
-
-            // --- LÓGICA DE FECHAS (UX Mejorada) ---
-
-            // 1. Fecha Inicio: Si es null (sin filtro), se queda null (abarca desde el principio de los tiempos)
-            // Si el usuario puso una fecha fija, LA RESPETAMOS.
-            val newFilterStartDate = oldFilters.startDate
-
-            // 2. Fecha Fin:
-            // Si es null, sigue siendo null (abarca hasta el futuro).
-            // PERO si era null, conceptualmente significa "hasta hoy/siempre".
-            // No necesitamos cambiar el valor del filtro (null sigue siendo "infinito").
-            val newFilterEndDate = oldFilters.endDate
-
-
-            currentState.copy(
-                statistics = InvoiceFilterUIState.FilterStatistics(
-                    maxAmount = newMaxAmount,
-                    oldestDateMillis = DateUtils.toEpochMilli(newOldest),
-                    newestDateMillis = DateUtils.toEpochMilli(newNewest)
-                ),
-                filters = oldFilters.copy(
-                    maxAmount = newFilterMaxAmount,
-                    startDate = newFilterStartDate,
-                    endDate = newFilterEndDate
-                )
-            )
-        }
-
-
-}
-
-
-
-
-
-
-
 
 }

@@ -12,15 +12,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.core.Logger
 import com.nexosolar.android.databinding.ActivityInvoiceListBinding
-import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
-import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
-import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -90,53 +86,97 @@ class InvoiceListActivity : AppCompatActivity() {
 
     // ========== UI RENDERING ==========
 
+    private var transitionJob: Job? = null
+
     private fun renderUiState(state: InvoiceUIState) {
         if (isFilteringActive()) return
 
-        // 1. Calculamos flags booleanos para saber qué mostrar
+        // Cancelamos cualquier transición pendiente
+        transitionJob?.cancel()
+
+        // 1. Flags
         val isLoading = state is InvoiceUIState.Loading
         val isError = state is InvoiceUIState.Error
         val isEmpty = state is InvoiceUIState.Empty
         val isSuccess = state is InvoiceUIState.Success
 
-        // 2. Asignamos visibilidades ATÓMICAMENTE (sin apagar primero)
-        // El Shimmer solo sale si es Loading puro (Hard Refresh)
+        // 2. Shimmer (Loading puro)
         binding.shimmerViewContainer.isVisible = isLoading
         if (isLoading) binding.shimmerViewContainer.startShimmer() else binding.shimmerViewContainer.stopShimmer()
 
+        // 3. Error
         binding.layoutErrorState.isVisible = isError
 
-        // IMPORTANTE: Aquí evitamos el parpadeo.
-        // Si pasas de Empty(refresca=true) -> Empty(refresca=false),
-        // 'isEmpty' siempre es true, así que la vista NUNCA se oculta.
-        binding.layoutEmptyState.isVisible = isEmpty
-        binding.recyclerView.isVisible = isSuccess
-
-        // 3. Configuración específica de cada estado
         when (state) {
+            // --- LOADING ---
             is InvoiceUIState.Loading -> {
                 binding.swipeRefresh.isEnabled = false
+                // Ocultamos todo lo demás para dejar solo el Shimmer
+                binding.recyclerView.isVisible = false
+                binding.layoutEmptyState.isVisible = false
             }
-            is InvoiceUIState.Success -> {
-                binding.swipeRefresh.isEnabled = true
-                binding.swipeRefresh.isRefreshing = state.isRefreshing
-                adapter.submitList(state.invoices)
-            }
+
+            // --- EMPTY ---
             is InvoiceUIState.Empty -> {
-                binding.swipeRefresh.isEnabled = true
-                binding.swipeRefresh.isRefreshing = state.isRefreshing
+                binding.recyclerView.isVisible = false
+                binding.layoutEmptyState.isVisible = true
+
+                // Purgamos memoria
                 adapter.submitList(emptyList())
 
+                binding.swipeRefresh.isEnabled = true
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
             }
+
+            // --- ERROR ---
             is InvoiceUIState.Error -> {
+                binding.recyclerView.isVisible = false
+                binding.layoutEmptyState.isVisible = false
+
                 binding.swipeRefresh.isEnabled = true
                 binding.swipeRefresh.isRefreshing = false
                 configurarVistaError(state.type)
+            }
+
+
+            is InvoiceUIState.Success -> {
+                binding.swipeRefresh.isEnabled = true
+                binding.swipeRefresh.isRefreshing = state.isRefreshing
+
+                // ¿Venimos de estar ocultos (Empty/Error/Loading)?
+                val venimosDeOculto = !binding.recyclerView.isVisible
+                if (venimosDeOculto) binding.recyclerView.itemAnimator = null
+                adapter.submitList(state.invoices) {
+                    if (venimosDeOculto) {
+
+                        binding.recyclerView.isVisible = true
+                        binding.layoutEmptyState.isVisible = false
+                        if (state.invoices.isNotEmpty()) {
+                            binding.recyclerView.scrollToPosition(0)
+                        }
+                        binding.recyclerView.post {
+                            binding.recyclerView.itemAnimator = androidx.recyclerview.widget.DefaultItemAnimator()
+                        }
+                    } else {
+                        // Si ya estaba visible, no tocamos nada, dejamos que DiffUtil anime
+                        // Aseguramos que el animator esté activo por si acaso
+                        if (binding.recyclerView.itemAnimator == null) {
+                            binding.recyclerView.itemAnimator = androidx.recyclerview.widget.DefaultItemAnimator()
+                        }
+                    }
+                }
+
+                // Safety check
+                if (!venimosDeOculto) {
+                    binding.recyclerView.isVisible = true
+                    binding.layoutEmptyState.isVisible = false
+                }
             }
         }
 
         invalidateOptionsMenu()
     }
+
 
 
 
