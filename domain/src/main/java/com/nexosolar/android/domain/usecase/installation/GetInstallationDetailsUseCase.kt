@@ -3,6 +3,7 @@ package com.nexosolar.android.domain.usecase.installation
 import com.nexosolar.android.domain.models.Installation
 import com.nexosolar.android.domain.repository.InstallationRepository
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
 /**
  * Caso de uso para recuperar los detalles técnicos de la instalación asociada al usuario.
@@ -10,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
  * Coordina la llamada al repositorio y proporciona un punto centralizado para extender
  * lógica de negocio (validaciones, transformaciones, auditoría) sin afectar la capa de presentación.
  */
-class GetInstallationDetailsUseCase(
+class GetInstallationDetailsUseCase @Inject constructor(
     private val repository: InstallationRepository
 ) {
 

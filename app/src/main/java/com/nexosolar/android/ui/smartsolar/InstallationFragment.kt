@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.nexosolar.android.databinding.FragmentInstallationBinding
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Fragment que muestra información general de la instalación solar.
@@ -14,6 +15,7 @@ import com.nexosolar.android.databinding.FragmentInstallationBinding
  * - Renderizar la vista principal con gráficos y métricas de la instalación
  * - Futuro: integrar ViewModel para cargar datos dinámicos
  */
+@AndroidEntryPoint
 class InstallationFragment : Fragment() {
     // ===== Variables de instancia =====
     private var binding: FragmentInstallationBinding? = null

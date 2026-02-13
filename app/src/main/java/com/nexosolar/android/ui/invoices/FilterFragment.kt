@@ -17,6 +17,7 @@ import com.nexosolar.android.databinding.FragmentFilterBinding
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.models.InvoiceState
 import com.nexosolar.android.ui.common.RangeValidator
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneOffset
@@ -25,6 +26,7 @@ import java.time.ZoneOffset
  * Fragment para configurar filtros de facturas.
  * MIGRADO A FLOW: Usa StateFlow y repeatOnLifecycle.
  */
+@AndroidEntryPoint
 class FilterFragment : Fragment() {
 
     private var _binding: FragmentFilterBinding? = null

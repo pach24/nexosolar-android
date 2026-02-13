@@ -6,6 +6,7 @@ import com.nexosolar.android.domain.models.Invoice
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import javax.inject.Inject
 
 /**
  * Mapper bidireccional entre modelos de dominio y entidades de base de datos.
@@ -21,7 +22,7 @@ import java.time.format.DateTimeParseException
  * - Operador Elvis (?:) para valores por defecto
  * - Funciones de extensión para transformaciones de listas
  */
-object InvoiceMapper {
+class InvoiceMapper @Inject constructor() {
 
     private val DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 

@@ -7,12 +7,14 @@ import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.tabs.TabLayoutMediator
 import com.nexosolar.android.databinding.ActivitySmartSolarBinding
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Pantalla principal del módulo SmartSolar.
  * Gestiona la navegación entre las pestañas de información de la instalación
  * mediante ViewPager2 y TabLayout.
  */
+@AndroidEntryPoint
 class SmartSolarActivity : AppCompatActivity() {
 
     // ===== Variables de instancia =====

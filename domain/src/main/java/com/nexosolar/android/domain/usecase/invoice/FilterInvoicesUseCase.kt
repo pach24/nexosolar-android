@@ -3,12 +3,13 @@ package com.nexosolar.android.domain.usecase.invoice
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import java.time.LocalDate
+import javax.inject.Inject
 
 /**
  * Caso de uso para filtrar facturas.
  * Contiene la lógica pura de negocio para aplicar filtros combinados (AND).
  */
-class FilterInvoicesUseCase {
+class FilterInvoicesUseCase @Inject constructor() {
 
     /**
      * Aplica filtros combinados (AND) a la lista de facturas.

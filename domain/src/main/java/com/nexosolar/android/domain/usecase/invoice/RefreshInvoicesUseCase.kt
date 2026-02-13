@@ -2,8 +2,9 @@
 package com.nexosolar.android.domain.usecase.invoice
 
 import com.nexosolar.android.domain.repository.InvoiceRepository
+import javax.inject.Inject
 
-class RefreshInvoicesUseCase(
+class RefreshInvoicesUseCase @Inject constructor (
     private val repository: InvoiceRepository
 ) {
 

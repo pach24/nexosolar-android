@@ -3,8 +3,9 @@ package com.nexosolar.android.data.source
 import com.nexosolar.android.data.local.InvoiceDao
 import com.nexosolar.android.data.local.InvoiceEntity
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
-class InvoiceLocalDataSourceImpl(
+class InvoiceLocalDataSourceImpl @Inject constructor(
     private val dao: InvoiceDao
 ) : InvoiceLocalDataSource {
 

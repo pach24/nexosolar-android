@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.DateUtils
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.models.maxAmount
@@ -14,6 +14,7 @@ import com.nexosolar.android.domain.models.oldestDate
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /**
  * ViewModel reactivo para la gestión de facturas usando StateFlow.
@@ -33,7 +35,9 @@ import kotlinx.coroutines.withContext
  * - Consume el Flow del UseCase de forma reactiva.
  * - Centraliza el estado en InvoiceUiState (sealed interface).
  */
-class InvoiceViewModel(
+
+@HiltViewModel
+class InvoiceViewModel @Inject constructor(
     private val getInvoicesUseCase: GetInvoicesUseCase,
     private val filterInvoicesUseCase: FilterInvoicesUseCase,
     private val refreshInvoicesUseCase: RefreshInvoicesUseCase

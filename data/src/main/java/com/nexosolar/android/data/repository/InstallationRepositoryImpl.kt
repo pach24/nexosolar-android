@@ -3,7 +3,7 @@ package com.nexosolar.android.data.repository
 import com.nexosolar.android.data.InstallationMapper
 import com.nexosolar.android.data.source.InstallationLocalDataSource
 import com.nexosolar.android.data.source.InstallationRemoteDataSource
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.models.Installation
 import com.nexosolar.android.domain.repository.InstallationRepository
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /**
  * Implementación del repositorio de instalaciones usando Flow y Offline-First.
@@ -22,10 +23,10 @@ import kotlinx.coroutines.withContext
  * 2. Actualiza en segundo plano desde la red (onStart).
  * 3. Gestiona errores de red sin romper la UI si hay caché.
  */
-class InstallationRepositoryImpl(
+class InstallationRepositoryImpl @Inject constructor(
     private val remoteDataSource: InstallationRemoteDataSource,
     private val localDataSource: InstallationLocalDataSource,
-    private val mapper: InstallationMapper = InstallationMapper
+    private val mapper: InstallationMapper
 ) : InstallationRepository {
 
     private companion object {

@@ -1,4 +1,4 @@
-package com.nexosolar.android.data.util
+package com.nexosolar.android.core
 
 import android.util.Log
 

@@ -3,8 +3,9 @@ package com.nexosolar.android.data.source
 import com.nexosolar.android.data.local.InstallationDao
 import com.nexosolar.android.data.local.InstallationEntity
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
-class InstallationLocalDataSourceImpl(
+class InstallationLocalDataSourceImpl @Inject constructor(
     private val dao: InstallationDao
 ) : InstallationLocalDataSource {
 

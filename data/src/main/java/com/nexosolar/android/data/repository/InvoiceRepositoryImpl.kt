@@ -4,7 +4,7 @@ import com.nexosolar.android.data.InvoiceMapper
 import com.nexosolar.android.data.local.InvoiceEntity
 import com.nexosolar.android.data.source.InvoiceLocalDataSource
 import com.nexosolar.android.data.source.InvoiceRemoteDataSource
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.repository.InvoiceRepository
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /**
  * Implementación del repositorio de facturas usando Flow (Programación Reactiva).
@@ -32,11 +33,10 @@ import kotlinx.coroutines.withContext
  *   3. Al guardar en Room, el Flow emite automáticamente los nuevos datos
  *   4. catch maneja errores de red sin romper el flujo de UI
  */
-class InvoiceRepositoryImpl(
+class InvoiceRepositoryImpl @Inject constructor(
     private val remoteDataSource: InvoiceRemoteDataSource,
     private val localDataSource: InvoiceLocalDataSource,
-    private val mapper: InvoiceMapper = InvoiceMapper,
-    private val isMockMode: Boolean = false
+    private val mapper: InvoiceMapper,
 ) : InvoiceRepository {
 
     private companion object {
