@@ -16,6 +16,8 @@ dependencies {
     // Corrutinas
     implementation(libs.kotlinx.coroutines.core)
 
+    implementation(libs.javax.inject)
+
     // Testing
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)

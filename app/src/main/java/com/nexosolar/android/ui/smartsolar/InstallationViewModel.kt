@@ -5,9 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.core.toTechnicalMessage
 import com.nexosolar.android.core.toUserMessage
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,8 +17,10 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class InstallationViewModel(
+@HiltViewModel
+class InstallationViewModel @Inject constructor(
     private val getInstallationUseCase: GetInstallationDetailsUseCase,
     private val refreshInstallationUseCase: RefreshInstallationUseCase
 ) : ViewModel() {

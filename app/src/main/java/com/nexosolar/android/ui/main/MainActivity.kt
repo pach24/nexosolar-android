@@ -1,5 +1,6 @@
 package com.nexosolar.android.ui.main
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -13,7 +14,9 @@ import com.nexosolar.android.R
 import com.nexosolar.android.databinding.ActivityMainBinding
 import com.nexosolar.android.ui.invoices.InvoiceListActivity
 import com.nexosolar.android.ui.smartsolar.SmartSolarActivity
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     // Usamos lateinit para evitar el tipado anulable (ActivityMainBinding?)
@@ -97,17 +100,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateDataModule() {
-        // Cast seguro a la Application
-        (application as? NexoSolarApplication)?.switchDataModule(useMock, useAltUrl)
-
-        val modeMsg = if (useMock) "Modo: Mock (RetroMock)" else "Modo: Real (Retrofit)"
-        val urlMsg = when {
-            useMock -> ""
-            useAltUrl -> " - URL2 (No funciona)"
-            else -> " - URL1 (Funciona)"
+        // Guardamos la preferencia
+        val prefs = getSharedPreferences("RepoPrefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putBoolean("last_mode_was_mock", useMock)
+            putBoolean("last_url_was_alt", useAltUrl)
+            apply()
         }
 
-        Toast.makeText(this, "$modeMsg$urlMsg", Toast.LENGTH_SHORT).show()
+        // Feedback visual
+        val modeMsg = if (useMock) "Modo: Mock" else "Modo: Real"
+        Toast.makeText(this, "Guardado: $modeMsg", Toast.LENGTH_SHORT).show()
+
+        // Opcional: Forzar recarga de datos si estás en una pantalla de lista
     }
 
     // Funciones de navegación con sintaxis simplificada

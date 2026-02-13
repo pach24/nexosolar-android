@@ -3,11 +3,12 @@ package com.nexosolar.android.data
 import com.nexosolar.android.data.local.InstallationEntity
 import com.nexosolar.android.data.remote.InstallationDTO
 import com.nexosolar.android.domain.models.Installation
+import javax.inject.Inject
 
 /**
  * Mapper completo para convertir entre capas: Remote (DTO) ↔ Local (Entity) ↔ Domain.
  */
-object InstallationMapper {
+class InstallationMapper @Inject constructor() {
 
     // =========================================================================
     // DTO -> DOMAIN (Usado cuando no hay persistencia o test directos)

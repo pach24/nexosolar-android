@@ -17,22 +17,21 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.databinding.FragmentDetailsBinding
 import com.nexosolar.android.domain.models.Installation
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class DetailsFragment : Fragment() {
 
     private var _binding: FragmentDetailsBinding? = null
     private val binding get() = _binding!!
 
-    // Usamos el ViewModel compartido (Activity Scoped)
-    private val viewModel: InstallationViewModel by activityViewModels {
-        val app = requireActivity().application as NexoSolarApplication
-        val repository = app.dataModule.provideInstallationRepository()
-        InstallationViewModelFactory(repository)
-    }
+
+    private val viewModel: InstallationViewModel by activityViewModels()
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?

@@ -15,31 +15,26 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.nexosolar.android.NexoSolarApplication
 import com.nexosolar.android.R
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.data.util.Logger
+import com.nexosolar.android.core.Logger
 import com.nexosolar.android.databinding.ActivityInvoiceListBinding
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
 /**
  * Activity principal de listado de facturas.
  * MIGRADO A FLOW: Consume el estado unificado InvoiceUiState.
  */
+@AndroidEntryPoint
 class InvoiceListActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityInvoiceListBinding
     private lateinit var adapter: InvoiceAdapter
 
-    // ViewModel Factory manual para inyectar dependencias
-    private val invoiceViewModel: InvoiceViewModel by viewModels {
-        val app = application as NexoSolarApplication
-        // Nota: Asegúrate de que provideInvoiceRepository() devuelve el Repo actualizado
-        val repository = app.dataModule.provideInvoiceRepository()
-        InvoiceViewModelFactory(GetInvoicesUseCase(repository), FilterInvoicesUseCase(),
-            RefreshInvoicesUseCase(repository)
-        )
-    }
+
+    private val invoiceViewModel: InvoiceViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +58,11 @@ class InvoiceListActivity : AppCompatActivity() {
                 renderCurrentState()
             }
         }
+    }
+    override fun onRestart() {
+        super.onRestart()
+        // Forzamos refresco al volver por si cambió la config en MainActivity
+        invoiceViewModel.refresh()
     }
 
     private fun setupRecyclerView() {
