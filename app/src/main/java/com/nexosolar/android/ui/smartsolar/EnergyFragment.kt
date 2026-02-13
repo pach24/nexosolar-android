@@ -4,43 +4,32 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
-import com.nexosolar.android.databinding.FragmentEnergyBinding
+import com.nexosolar.android.ui.theme.NexoSolarTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Fragment que muestra métricas y estadísticas de consumo energético.
- *
- * Responsabilidades:
- * - Renderizar gráficos de consumo/producción energética
- * - Futuro: integrar ViewModel para obtener datos históricos
  */
 @AndroidEntryPoint
 class EnergyFragment : Fragment() {
-
-    // ===== Variables de instancia =====
-
-    private var _binding: FragmentEnergyBinding? = null
-    private val binding get() = _binding!!
-
-    // ===== Métodos del ciclo de vida =====
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentEnergyBinding.inflate(inflater, container, false)
-        return binding.root
+        return ComposeView(requireContext()).apply{
+            // Estrategia para liberar recursos cuando se destruye la vista del fragmento
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                NexoSolarTheme {
+                    EnergyScreen()
+                }
+            }
+        }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
 }

@@ -57,8 +57,9 @@ fun NexoSolarTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            // Status bar blanca con iconos oscuros (como en tu XML)
+            // SOLUCIÓN: Buscar la Activity de forma recursiva (segura para Hilt)
+            val window = (view.context.findActivity()).window
+
             window.statusBarColor = androidx.compose.ui.graphics.Color.White.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
@@ -69,4 +70,14 @@ fun NexoSolarTheme(
         typography = Typography,
         content = content
     )
+}
+
+// Función helper para desenrollar el ContextWrapper de Hilt
+private fun android.content.Context.findActivity(): Activity {
+    var context = this
+    while (context is android.content.ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    throw IllegalStateException("No activity found")
 }
