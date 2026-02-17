@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.core.toTechnicalMessage
-import com.nexosolar.android.core.toUserMessage
+import com.nexosolar.android.ui.common.toUserMessageRes
 import com.nexosolar.android.core.Logger
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
@@ -52,7 +52,7 @@ class InstallationViewModel @Inject constructor(
                     val errorType = ErrorClassifier.classify(error)
                     Logger.e(TAG, errorType.toTechnicalMessage(), error)
                     _uiState.value = InstallationUIState.Error(
-                        message = errorType.toUserMessage(),
+                        messageRes = errorType.toUserMessageRes(),
                         type = errorType
                     )
                 }

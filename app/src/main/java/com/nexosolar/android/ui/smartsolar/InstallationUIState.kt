@@ -18,7 +18,7 @@ sealed interface InstallationUIState {
 
     // Error (Pantalla de error)
     data class Error(
-        val message: String,
+        val messageRes: Int,
         val type: ErrorClassifier.ErrorType
     ) : InstallationUIState
 }

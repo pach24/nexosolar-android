@@ -63,7 +63,7 @@ fun InstallationScreen(
                 }
                 is InstallationUIState.Error -> {
                     Text(
-                        text = "Error: ${uiState.message}",
+                        text = "Error: ${uiState.messageRes}",
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
