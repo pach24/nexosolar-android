@@ -19,6 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexosolar.android.R
 
+@Composable
+fun EnergyRoute() {
+    EnergyScreen()
+}
 @Preview
 @Composable
 fun EnergyScreen() {
