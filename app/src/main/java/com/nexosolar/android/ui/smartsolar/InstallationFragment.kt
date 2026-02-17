@@ -4,38 +4,36 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
-import com.nexosolar.android.databinding.FragmentInstallationBinding
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nexosolar.android.ui.theme.NexoSolarTheme // Asegúrate de importar tu tema
 import dagger.hilt.android.AndroidEntryPoint
 
-/**
- * Fragment que muestra información general de la instalación solar.
- *
- * Responsabilidades:
- * - Renderizar la vista principal con gráficos y métricas de la instalación
- * - Futuro: integrar ViewModel para cargar datos dinámicos
- */
-@AndroidEntryPoint
+
+
+@AndroidEntryPoint // ¡CRUCIAL! Sin esto, hiltViewModel() dentro de Route fallará
 class InstallationFragment : Fragment() {
-    // ===== Variables de instancia =====
-    private var binding: FragmentInstallationBinding? = null
 
-    // ===== Métodos del ciclo de vida =====
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        binding = FragmentInstallationBinding.inflate(inflater, container, false)
-        return binding!!.root
+    ): View {
+        return ComposeView(requireContext()).apply {
+            // Estrategia recomendada para Fragments: destruye la composición cuando muere la vista del fragmento
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+
+            setContent {
+                // Envuelve todo en tu tema para que los colores y tipografías funcionen
+                NexoSolarTheme {
+                    // Llamamos a la "Route" que gestiona el ViewModel
+                    InstallationRoute()
+                }
+            }
+        }
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        binding = null
-    }
 }
