@@ -1,4 +1,4 @@
-package com.nexosolar.android.ui.smartsolar
+package com.nexosolar.android.ui.smartsolar.models
 
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.domain.models.Installation
@@ -18,7 +18,7 @@ sealed interface InstallationUIState {
 
     // Error (Pantalla de error)
     data class Error(
-        val message: String,
+        val messageRes: Int,
         val type: ErrorClassifier.ErrorType
     ) : InstallationUIState
 }
