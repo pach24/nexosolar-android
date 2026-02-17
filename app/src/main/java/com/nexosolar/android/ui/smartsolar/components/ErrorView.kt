@@ -1,17 +1,18 @@
-package com.nexosolar.android.ui.common
+package com.nexosolar.android.ui.smartsolar.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -22,11 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexosolar.android.R
 import com.nexosolar.android.core.ErrorClassifier
+import com.nexosolar.android.ui.theme.NexoSolarTheme
 
-/**
- * Vista genérica de error reutilizable.
- * Muestra un icono, título, mensaje y botón de reintentar.
- */
 @Composable
 fun ErrorView(
     message: String,
@@ -34,54 +32,51 @@ fun ErrorView(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 1. Obtenemos la configuración visual (Icono, Título, Tamaño)
-    // Si errorType es null, asumimos Unknown
-    val uiConfig = (errorType ?: ErrorClassifier.ErrorType.Unknown(null)).toUiConfig()
+    val type = errorType ?: ErrorClassifier.ErrorType.Unknown(null)
+    val uiConfig = type.toUiConfig()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-
-        // 2. Icono dinámico
         Image(
             painter = painterResource(id = uiConfig.iconRes),
-            contentDescription = stringResource(R.string.error_icon_desc),
+            contentDescription = null,
             modifier = Modifier
-                .size(uiConfig.iconSize) // Tamaño dinámico
+                .size(uiConfig.iconSize)
                 .padding(bottom = 24.dp),
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Fit,
+            colorFilter = if (type is ErrorClassifier.ErrorType.Network) {
+                ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)
+            } else null
         )
 
-        // 3. Título dinámico
         Text(
             text = stringResource(id = uiConfig.titleRes),
-            color = Color.Black,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // 4. Mensaje (viene del ViewModel)
         Text(
             text = message,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 16.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        // 5. Botón de Reintentar
         Button(
             onClick = onRetry,
             colors = ButtonDefaults.buttonColors(
-                containerColor = colorResource(id = R.color.my_theme_green_light),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ),
             modifier = Modifier.widthIn(min = 140.dp)
         ) {
@@ -90,40 +85,20 @@ fun ErrorView(
     }
 }
 
-// =================================================================
-// EXTENSIONES & CONFIG
-// =================================================================
-
-/**
- * Modelo de configuración visual para errores.
- */
 private data class ErrorUiConfig(
     val titleRes: Int,
     val iconRes: Int,
     val iconSize: Dp
 )
 
-/**
- * Mapea el tipo de error de dominio a recursos visuales de UI.
- */
 private fun ErrorClassifier.ErrorType.toUiConfig(): ErrorUiConfig {
     return when (this) {
-        // ERROR DE RED: Icono WiFi pequeño + Título "Sin Conexión"
         is ErrorClassifier.ErrorType.Network -> ErrorUiConfig(
             titleRes = R.string.error_conexion,
             iconRes = R.drawable.ic_wifi_off_24,
             iconSize = 100.dp
         )
-
-        // ERROR DE SERVIDOR: Icono Genérico grande + Título Genérico
-        is ErrorClassifier.ErrorType.Server -> ErrorUiConfig(
-            titleRes = R.string.error_generic_title, // O "Error de Servidor" si tienes
-            iconRes = R.drawable.ic_error_installation,
-            iconSize = 200.dp
-        )
-
-        // DESCONOCIDO: Igual que servidor
-        is ErrorClassifier.ErrorType.Unknown -> ErrorUiConfig(
+        else -> ErrorUiConfig(
             titleRes = R.string.error_generic_title,
             iconRes = R.drawable.ic_error_installation,
             iconSize = 200.dp
@@ -131,26 +106,54 @@ private fun ErrorClassifier.ErrorType.toUiConfig(): ErrorUiConfig {
     }
 }
 
-// =================================================================
-// PREVIEWS
-// =================================================================
-
-@Preview(showBackground = true, name = "Error - Network (Small Icon)")
+@Preview(showBackground = true, name = "Network Error (Light)")
 @Composable
-fun ErrorViewNetworkPreview() {
-    ErrorView(
-        message = stringResource(R.string.error_conexion_description_message),
-        errorType = ErrorClassifier.ErrorType.Network("No internet"),
-        onRetry = {}
-    )
+private fun ErrorViewNetworkLightPreview() {
+    NexoSolarTheme(darkTheme = false) {
+        ErrorView(
+            message = stringResource(R.string.error_conexion_description_message),
+            errorType = ErrorClassifier.ErrorType.Network("No internet"),
+            onRetry = {}
+        )
+    }
 }
 
-@Preview(showBackground = true, name = "Error - Generic (Big Icon)")
+@Preview(showBackground = true, name = "Network Error (Dark)", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun ErrorViewGenericPreview() {
-    ErrorView(
-        message = stringResource(R.string.error_message_generic),
-        errorType = ErrorClassifier.ErrorType.Unknown(null),
-        onRetry = {}
-    )
+private fun ErrorViewNetworkDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        ErrorView(
+            message = stringResource(R.string.error_conexion_description_message),
+            errorType = ErrorClassifier.ErrorType.Network("No internet"),
+            onRetry = {}
+        )
+    }
 }
+
+@Preview(showBackground = true, name = "Generic Error")
+@Composable
+private fun ErrorViewGenericPreview() {
+    NexoSolarTheme {
+        ErrorView(
+            message = stringResource(R.string.error_message_generic),
+            errorType = ErrorClassifier.ErrorType.Unknown(null),
+            onRetry = {}
+        )
+    }
+}
+@Preview(
+    showBackground = true,
+    name = "Generic Error (Dark)",
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun ErrorViewGenericDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        ErrorView(
+            message = stringResource(R.string.error_message_generic),
+            errorType = ErrorClassifier.ErrorType.Unknown(null),
+            onRetry = {}
+        )
+    }
+}
+

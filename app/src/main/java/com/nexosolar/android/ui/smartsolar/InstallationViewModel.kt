@@ -3,19 +3,15 @@ package com.nexosolar.android.ui.smartsolar
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.core.toTechnicalMessage
-import com.nexosolar.android.ui.common.toUserMessageRes
 import com.nexosolar.android.core.Logger
+import com.nexosolar.android.core.toTechnicalMessage
 import com.nexosolar.android.domain.usecase.installation.GetInstallationDetailsUseCase
 import com.nexosolar.android.domain.usecase.installation.RefreshInstallationUseCase
+import com.nexosolar.android.ui.common.toUserMessageRes
+import com.nexosolar.android.ui.smartsolar.models.InstallationUIState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,13 +21,8 @@ class InstallationViewModel @Inject constructor(
     private val refreshInstallationUseCase: RefreshInstallationUseCase
 ) : ViewModel() {
 
-    private companion object {
-        private const val TAG = "InstallationVM"
-    }
-
     private val _uiState = MutableStateFlow<InstallationUIState>(InstallationUIState.Loading)
     val uiState: StateFlow<InstallationUIState> = _uiState.asStateFlow()
-
     private var collectionJob: Job? = null
 
     init {
@@ -43,70 +34,53 @@ class InstallationViewModel @Inject constructor(
         collectionJob = viewModelScope.launch {
             getInstallationUseCase()
                 .onStart {
-                    // Solo ponemos Loading si es la primera vez (no hay datos previos)
+                    // Evitamos parpadeo de carga si ya hay datos mostrándose
                     if (_uiState.value !is InstallationUIState.Success) {
-                        _uiState.value = InstallationUIState.Loading
+                        _uiState.emit(InstallationUIState.Loading)
                     }
                 }
                 .catch { error ->
                     val errorType = ErrorClassifier.classify(error)
-                    Logger.e(TAG, errorType.toTechnicalMessage(), error)
-                    _uiState.value = InstallationUIState.Error(
-                        messageRes = errorType.toUserMessageRes(),
-                        type = errorType
-                    )
+                    Logger.e("InstallationVM", errorType.toTechnicalMessage(), error)
+                    _uiState.emit(InstallationUIState.Error(errorType.toUserMessageRes(), errorType))
                 }
                 .collect { installation ->
-                    Logger.d(TAG, "[FLOW] Received installation data")
-                    // Al recibir datos nuevos de Room, el refresh termina automáticamente (isRefreshing = false)
-                    if (installation == null) {
-                        _uiState.value = InstallationUIState.Empty(isRefreshing = false)
+                    // La emisión exitosa de Room detiene el spinner automáticamente
+                    _uiState.value = if (installation == null) {
+                        InstallationUIState.Empty(isRefreshing = false)
                     } else {
-                        _uiState.value = InstallationUIState.Success(installation, isRefreshing = false)
+                        InstallationUIState.Success(installation, isRefreshing = false)
                     }
                 }
         }
     }
 
-    /**
-     *
-     * Mantiene los datos visibles y solo activa el spinner.
-     */
     fun onRefresh() {
         val currentState = _uiState.value
-
-        // Solo permitimos refresh si estamos en Success o Empty
-        if (currentState is InstallationUIState.Success || currentState is InstallationUIState.Empty) {
-            viewModelScope.launch {
-                // 1. Activar spinner visualmente (sin borrar datos)
-                if (currentState is InstallationUIState.Success) {
-                    _uiState.update { currentState.copy(isRefreshing = true) }
-                } else if (currentState is InstallationUIState.Empty) {
-                    _uiState.update { currentState.copy(isRefreshing = true) }
-                }
-
-                // 2. Llamada de red
-                try {
-                    refreshInstallationUseCase()
-                    // Si va bien, Room se actualiza -> 'observarInstalacion' emite nuevo valor -> Spinner se apaga solo
-                } catch (error: Exception) {
-                    Logger.e(TAG, "Error refrescando instalación", error)
-
-                    // 3. Si falla, apagamos el spinner manualmente y mantenemos los datos viejos
-                    // (Opcional: aquí podrías emitir un evento OneShot para un Toast de error)
-                    if (currentState is InstallationUIState.Success) {
-                        _uiState.update { currentState.copy(isRefreshing = false) }
-                    } else if (currentState is InstallationUIState.Empty) {
-                        _uiState.update { currentState.copy(isRefreshing = false) }
-                    }
-
-                    // NOTA: Si quisieras mostrar Toast, necesitarías un Channel de efectos (SideEffects),
-                    // pero para mantenerlo simple como Invoices, solo paramos el spinner.
-                }
-            }
-        } else {
-            // Si estamos en Error y damos a "Reintentar", hacemos carga completa
+        // Si hay error previo, reintentamos la observación completa
+        if (currentState is InstallationUIState.Error) {
             observarInstalacion()
+            return
+        }
+        // Refresco silencioso para Success/Empty
+        viewModelScope.launch {
+            setRefreshing(true)
+            try {
+                refreshInstallationUseCase()
+            } catch (e: Exception) {
+                Logger.e("InstallationVM", "Error al refrescar", e)
+                setRefreshing(false)
+            }
+        }
+    }
+
+    private fun setRefreshing(isRefreshing: Boolean) {
+        _uiState.update { state ->
+            when (state) {
+                is InstallationUIState.Success -> state.copy(isRefreshing = isRefreshing)
+                is InstallationUIState.Empty -> state.copy(isRefreshing = isRefreshing)
+                else -> state
+            }
         }
     }
 }

@@ -18,7 +18,6 @@ class SmartSolarActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             NexoSolarTheme {
-                // Llamamos al Route que tiene Hilt
                 SmartSolarRoute(onBackClick = { finish() })
             }
         }

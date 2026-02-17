@@ -1,4 +1,4 @@
-package com.nexosolar.android.ui.smartsolar
+package com.nexosolar.android.ui.smartsolar.models
 
 import com.nexosolar.android.core.ErrorClassifier
 import com.nexosolar.android.domain.models.Installation
