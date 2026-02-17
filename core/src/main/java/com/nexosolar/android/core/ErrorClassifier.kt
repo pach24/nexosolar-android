@@ -2,7 +2,7 @@ package com.nexosolar.android.core
 
 import java.io.IOException
 import java.net.SocketTimeoutException
-import android.R.string
+
 /**
  * Clasificador de errores con tipo seguro.
  *
@@ -75,7 +75,21 @@ object ErrorClassifier {
     }
 }
 
+/**
+ * Extension function para obtener mensaje de error user-friendly.
+ *
+ * Separa la lógica de presentación del clasificador.
+ */
+fun ErrorClassifier.ErrorType.toUserMessage(): String = when (this) {
+    is ErrorClassifier.ErrorType.Network ->
+        "No hay conexión a internet. Revisa tu red."
 
+    is ErrorClassifier.ErrorType.Server ->
+        "El servidor no responde correctamente"
+
+    is ErrorClassifier.ErrorType.Unknown ->
+        "Ha ocurrido un error inesperado."
+}
 
 /**
  * Extension function para logging técnico.
