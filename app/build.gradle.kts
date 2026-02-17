@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
-    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -41,7 +40,6 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-
 }
 
 dependencies {
@@ -94,22 +92,7 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
     implementation(libs.javax.inject)
-
-    // --- COMPOSE ---
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-
-    // Integración
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
-
-    // Debug
-    debugImplementation(libs.androidx.ui.tooling)
 
 }

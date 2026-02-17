@@ -128,7 +128,7 @@
     <string name="no_data_to_filter">Las facturas aún no están cargadas.</string>
 
     <string name="error_generic_title">¡Vaya!</string>
-    <string name="error_message_generic">Ha ocurrido un problema inesperado.</string>
+    <string name="error_message_generic">Ha ocurrido un problema al cargar los datos.</string>
     <string name="error_icon_desc">Icono de error</string>
     <string name="retry">Reintentar</string>
     <string name="error_network_title">Sin conexión</string>
