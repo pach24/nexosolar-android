@@ -133,4 +133,8 @@
     <string name="retry">Reintentar</string>
     <string name="error_network_title">Sin conexión</string>
 
+
+    <string name="informacion">Información</string>
+
+
 </resources>

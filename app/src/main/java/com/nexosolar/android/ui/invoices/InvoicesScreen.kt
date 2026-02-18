@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexosolar.android.R
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.ui.invoices.components.InvoiceItem
+import com.nexosolar.android.ui.invoices.components.NotAvailableDialog
 import com.nexosolar.android.ui.invoices.filter.InvoiceFilterScreen
 import com.nexosolar.android.ui.smartsolar.components.ErrorView
 import java.time.LocalDate
@@ -91,6 +92,8 @@ fun InvoiceScreen(
     onBackClick: () -> Unit,
     onFilterClick: () -> Unit
 ) {
+    var showNotAvailableDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -189,13 +192,19 @@ fun InvoiceScreen(
                                 ) { invoice ->
                                     InvoiceItem(
                                         invoice = invoice,
-                                        onClick = { /* TODO: Navegar a detalle */ }
+                                        onClick = { showNotAvailableDialog = true }
                                     )
                                 }
                             }
                         }
                     }
                 }
+            }
+            // ✅ Diálogo condicional
+            if (showNotAvailableDialog) {
+                NotAvailableDialog(
+                    onDismiss = { showNotAvailableDialog = false }
+                )
             }
         }
     }
