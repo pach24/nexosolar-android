@@ -124,7 +124,7 @@
     <!-- ============================================================ -->
     <string name="cambiar_a_retromock">Cambiar a Retromock</string>
     <string name="retromock">RetroMock</string>
-    <string name="servidor">URL 1/ URL 2\n</string>
+    <string name="servidor">URL 1/ URL 2</string>
     <string name="no_data_to_filter">Las facturas aún no están cargadas.</string>
 
     <string name="error_generic_title">¡Vaya!</string>
@@ -132,5 +132,9 @@
     <string name="error_icon_desc">Icono de error</string>
     <string name="retry">Reintentar</string>
     <string name="error_network_title">Sin conexión</string>
+
+
+    <string name="informacion">Información</string>
+
 
 </resources>

@@ -72,12 +72,14 @@ dependencies {
 
     // --- KOTLIN & COROUTINES ---
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.compose.ui.tooling.preview)
 
     // --- DESUGARING ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // --- TESTING UNITARIO (JUnit 5) ---
     testImplementation(libs.junit.jupiter.api)
+    debugImplementation(libs.androidx.compose.ui.tooling)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -102,6 +104,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+
 
     // Integración
     implementation(libs.androidx.activity.compose)

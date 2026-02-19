@@ -50,6 +50,7 @@ fun SmartSolarScreen(
     val titles = listOf("Mi instalación", "Energía", "Detalles")
 
     Scaffold(
+        modifier = Modifier.systemBarsPadding(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Column(

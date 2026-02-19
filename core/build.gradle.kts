@@ -15,6 +15,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -26,7 +27,7 @@ android {
 
 dependencies {
     implementation(libs.gson)
-
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     // Testing
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
