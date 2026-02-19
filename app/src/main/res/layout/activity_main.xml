@@ -52,7 +52,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:text="@string/servidor"
+        android:text="URL 1/ URL 2\n"
         android:textColor="@color/white"
         android:textSize="11sp"
         android:textStyle="bold"
