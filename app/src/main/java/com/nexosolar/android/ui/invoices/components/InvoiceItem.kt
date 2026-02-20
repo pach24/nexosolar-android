@@ -22,21 +22,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nexosolar.android.R
-import com.nexosolar.android.core.DateUtils
-import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.ui.invoices.models.InvoiceListItemUi
 import com.nexosolar.android.domain.models.InvoiceState
 import com.nexosolar.android.ui.theme.NexoSolarTheme
-import java.time.LocalDate
-import java.util.Locale
 
 
 
 @Composable
 fun InvoiceItem(
-    invoice: Invoice,
+    invoice: InvoiceListItemUi,
     onClick: () -> Unit
 ) {
-    val isPaid = invoice.estadoEnum == InvoiceState.PAID
+    val isPaid = invoice.state == InvoiceState.PAID
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -55,7 +52,7 @@ fun InvoiceItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = DateUtils.formatDate(invoice.invoiceDate).ifEmpty { stringResource(R.string.sin_fecha) },
+                    text = invoice.formattedDate.ifEmpty { stringResource(R.string.sin_fecha) },
                     color = Color.Black,
                     fontSize = dimensionResource(id = R.dimen.invoice_item_date_text_size).value.sp,
                     fontWeight = FontWeight.Normal,
@@ -66,11 +63,11 @@ fun InvoiceItem(
                     )
                 )
 
-                if (invoice.estadoEnum != InvoiceState.PAID) {
+                if (invoice.state != InvoiceState.PAID) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = stringResource(id = getStatusTextRes(invoice.estadoEnum)),
-                        color = getStatusColor(invoice.estadoEnum),
+                        text = stringResource(id = getStatusTextRes(invoice.state)),
+                        color = getStatusColor(invoice.state),
                         fontSize = dimensionResource(id = R.dimen.invoice_item_state_text_size).value.sp,
                         modifier = Modifier.padding(
                             start = dimensionResource(id = R.dimen.invoice_item_state_margin_start),
@@ -95,7 +92,7 @@ fun InvoiceItem(
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    text = String.format(Locale.getDefault(), "%.2f €", invoice.invoiceAmount),
+                    text = invoice.formattedAmount,
                     color = Color.Black,
                     fontSize = dimensionResource(id = R.dimen.invoice_item_amount_text_size).value.sp,
                     fontWeight = FontWeight.Normal,
@@ -151,10 +148,11 @@ private fun getStatusColor(state: InvoiceState): Color {
 private fun InvoiceItemPendingPreview() {
     NexoSolarTheme {
         InvoiceItem(
-            invoice = Invoice(
-                invoiceAmount = 150.50f,
-                invoiceDate = LocalDate.of(2023, 9, 10),
-                invoiceStatus = "Pendiente de pago" // String raw, pero el enum lo pilla
+            invoice = InvoiceListItemUi(
+                invoiceId = 1,
+                state = InvoiceState.PENDING,
+                formattedDate = "10 Sep 2023",
+                formattedAmount = "150.50 €"
             ),
             onClick = {}
         )
@@ -166,10 +164,11 @@ private fun InvoiceItemPendingPreview() {
 private fun InvoiceItemPaidPreview() {
     NexoSolarTheme {
         InvoiceItem(
-            invoice = Invoice(
-                invoiceAmount = 89.99f,
-                invoiceDate = LocalDate.of(2023, 10, 25),
-                invoiceStatus = "Pagada" // Debería mapear a PAID
+            invoice = InvoiceListItemUi(
+                invoiceId = 2,
+                state = InvoiceState.PAID,
+                formattedDate = "25 Oct 2023",
+                formattedAmount = "89.99 €"
             ),
             onClick = {}
         )

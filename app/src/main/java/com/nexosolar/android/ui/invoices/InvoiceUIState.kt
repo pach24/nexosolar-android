@@ -1,7 +1,7 @@
 package com.nexosolar.android.ui.invoices
 
 import com.nexosolar.android.core.ErrorClassifier
-import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.ui.invoices.models.InvoiceListItemUi
 import com.nexosolar.android.domain.models.InvoiceFilters
 
 /**
@@ -20,7 +20,7 @@ sealed interface InvoiceUIState {
      * @param isRefreshing Indica si hay una recarga en segundo plano (spinner pequeño).
      */
     data class Success(
-        val invoices: List<Invoice>,
+        val invoices: List<InvoiceListItemUi>,
         val isRefreshing: Boolean = false
     ) : InvoiceUIState
 

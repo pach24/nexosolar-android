@@ -10,16 +10,15 @@ import com.nexosolar.android.core.toTechnicalMessage
 import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.domain.models.InvoiceFilters
 import com.nexosolar.android.domain.models.maxAmount
-import com.nexosolar.android.domain.models.minAmount
 import com.nexosolar.android.domain.models.newestDate
 import com.nexosolar.android.domain.models.oldestDate
 import com.nexosolar.android.domain.usecase.invoice.FilterInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
 import com.nexosolar.android.ui.common.toUserMessageRes
-import com.nexosolar.android.ui.invoices.InvoiceFilterUIState
-import com.nexosolar.android.ui.invoices.InvoiceUIState
+import com.nexosolar.android.ui.invoices.models.InvoiceListItemUi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +27,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -83,18 +84,35 @@ class InvoiceViewModel @Inject constructor(
                     if (invoices.isEmpty()) {
                         _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
                     } else {
-                        // ✅ ESTA ES LA FUNCIÓN QUE QUERÍAS PRESERVAR
-                        actualizarEstadoFiltrosSinPerderSeleccion(invoices)
-                        aplicarFiltrosInterno()
+                        val processingResult = withContext(Dispatchers.Default) {
+                            processInvoices(invoices, _filterState.value)
+                        }
+
+                        _filterState.value = processingResult.filterState
+                        _uiState.value = processingResult.uiState
                     }
                 }
         }
     }
 
-    private fun actualizarEstadoFiltrosSinPerderSeleccion(invoices: List<Invoice>) {
-        if (invoices.isEmpty()) return
+    private fun processInvoices(
+        invoices: List<Invoice>,
+        currentFilterState: InvoiceFilterUIState
+    ): InvoiceProcessingResult {
+        val updatedFilterState = buildUpdatedFilterState(invoices, currentFilterState)
+        val nextUiState = buildUiState(invoices, updatedFilterState.filters)
+        return InvoiceProcessingResult(
+            filterState = updatedFilterState,
+            uiState = nextUiState
+        )
+    }
 
-        val currentUI = _filterState.value
+    private fun buildUpdatedFilterState(
+        invoices: List<Invoice>,
+        currentUI: InvoiceFilterUIState
+    ): InvoiceFilterUIState {
+        if (invoices.isEmpty()) return currentUI
+
         val oldFilters = currentUI.filters
         val oldStats = currentUI.statistics
 
@@ -137,7 +155,7 @@ class InvoiceViewModel @Inject constructor(
 
         // 3. Actualizar estado
         val filtersToKeep = oldFilters.copy(minAmount = finalMin, maxAmount = finalMax)
-        _filterState.value = currentUI.copy(filters = filtersToKeep, statistics = newStats)
+        return currentUI.copy(filters = filtersToKeep, statistics = newStats)
     }
 
 
@@ -163,28 +181,44 @@ class InvoiceViewModel @Inject constructor(
     fun applyFilters() {
         viewModelScope.launch {
             _filterState.update { it.copy(isApplying = true) }
-            aplicarFiltrosInterno()
+            val nextUiState = withContext(Dispatchers.Default) {
+                buildUiState(originalInvoices, _filterState.value.filters)
+            }
+            _uiState.value = nextUiState
             _filterState.update { it.copy(isApplying = false) }
         }
     }
 
-    private fun aplicarFiltrosInterno() {
-        val currentFilters = _filterState.value.filters ?: return
-        val filteredList = filterInvoicesUseCase(originalInvoices, currentFilters)
+    private fun buildUiState(
+        sourceInvoices: List<Invoice>,
+        currentFilters: InvoiceFilters?
+    ): InvoiceUIState {
+        val filters = currentFilters ?: return InvoiceUIState.Empty(isRefreshing = false)
+        val filteredList = filterInvoicesUseCase(sourceInvoices, filters)
 
         if (filteredList.isEmpty()) {
-            _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
+            return InvoiceUIState.Empty(isRefreshing = false)
         } else {
-            // Solo actualizamos si la lista cambió para evitar parpadeos
-            val current = _uiState.value
-            if (current !is InvoiceUIState.Success || current.invoices != filteredList) {
-                _uiState.value = InvoiceUIState.Success(
-                    invoices = filteredList,
-                    isRefreshing = false
-                )
-            }
+            return InvoiceUIState.Success(
+                invoices = filteredList.map { it.toUiItem() },
+                isRefreshing = false
+            )
         }
     }
+
+    private fun Invoice.toUiItem(): InvoiceListItemUi {
+        return InvoiceListItemUi(
+            invoiceId = invoiceID,
+            state = estadoEnum,
+            formattedDate = DateUtils.formatDate(invoiceDate),
+            formattedAmount = String.format(Locale.getDefault(), "%.2f €", invoiceAmount)
+        )
+    }
+
+    private data class InvoiceProcessingResult(
+        val filterState: InvoiceFilterUIState,
+        val uiState: InvoiceUIState
+    )
 
     // --- REFRESH / SWIPE TO REFRESH ---
 

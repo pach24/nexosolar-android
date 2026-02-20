@@ -23,13 +23,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexosolar.android.R
-import com.nexosolar.android.domain.models.Invoice
+import com.nexosolar.android.domain.models.InvoiceState
 import com.nexosolar.android.ui.invoices.components.InvoiceItem
 import com.nexosolar.android.ui.invoices.components.InvoiceItemSkeleton
 import com.nexosolar.android.ui.invoices.components.NotAvailableDialog
 import com.nexosolar.android.ui.invoices.filter.InvoiceFilterScreen
 import com.nexosolar.android.ui.smartsolar.components.ErrorView
-import java.time.LocalDate
+import com.nexosolar.android.ui.invoices.models.InvoiceListItemUi
 
 // =================================================================
 // 1. ROUTE
@@ -198,7 +198,7 @@ private fun InvoiceContent(
                     ) {
                         items(
                             items = uiState.invoices,
-                            key = { it.invoiceID }
+                            key = { it.invoiceId }
                         ) { invoice ->
                             InvoiceItem(
                                 invoice = invoice,
@@ -293,11 +293,11 @@ private fun InvoiceScreenSuccessPreview() {
     InvoiceScreen(
         uiState = InvoiceUIState.Success(
             invoices = listOf(
-                Invoice(invoiceID = 1, invoiceAmount = 54.56f, invoiceDate = LocalDate.of(2020, 8, 31), invoiceStatus = "Pendiente de pago"),
-                Invoice(invoiceID = 2, invoiceAmount = 67.54f, invoiceDate = LocalDate.of(2020, 7, 31), invoiceStatus = "Pagada"),
-                Invoice(invoiceID = 3, invoiceAmount = 56.38f, invoiceDate = LocalDate.of(2020, 6, 22), invoiceStatus = "Anulada"),
-                Invoice(invoiceID = 4, invoiceAmount = 150.75f, invoiceDate = LocalDate.of(2024, 5, 12), invoiceStatus = "Cuota fija"),
-                Invoice(invoiceID = 5, invoiceAmount = 99.99f, invoiceDate = LocalDate.of(2024, 6, 8), invoiceStatus = "Plan de pago"),
+                InvoiceListItemUi(invoiceId = 1, state = InvoiceState.PENDING, formattedDate = "31 Ago 2020", formattedAmount = "54.56 €"),
+                InvoiceListItemUi(invoiceId = 2, state = InvoiceState.PAID, formattedDate = "31 Jul 2020", formattedAmount = "67.54 €"),
+                InvoiceListItemUi(invoiceId = 3, state = InvoiceState.CANCELLED, formattedDate = "22 Jun 2020", formattedAmount = "56.38 €"),
+                InvoiceListItemUi(invoiceId = 4, state = InvoiceState.FIXED_FEE, formattedDate = "12 May 2024", formattedAmount = "150.75 €"),
+                InvoiceListItemUi(invoiceId = 5, state = InvoiceState.PAYMENT_PLAN, formattedDate = "08 Jun 2024", formattedAmount = "99.99 €"),
             )
         ),
         onRefresh = {},
