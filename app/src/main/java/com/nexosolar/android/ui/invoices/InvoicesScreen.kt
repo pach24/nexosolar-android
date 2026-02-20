@@ -1,5 +1,11 @@
 package com.nexosolar.android.ui.invoices
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,13 +29,11 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexosolar.android.R
-import com.nexosolar.android.domain.models.Invoice
 import com.nexosolar.android.ui.invoices.components.InvoiceItem
 import com.nexosolar.android.ui.invoices.components.InvoiceItemSkeleton
 import com.nexosolar.android.ui.invoices.components.NotAvailableDialog
 import com.nexosolar.android.ui.invoices.filter.InvoiceFilterScreen
 import com.nexosolar.android.ui.smartsolar.components.ErrorView
-import java.time.LocalDate
 
 // =================================================================
 // 1. ROUTE
@@ -198,7 +202,7 @@ private fun InvoiceContent(
                     ) {
                         items(
                             items = uiState.invoices,
-                            key = { it.invoiceID }
+                            key = { it.id }
                         ) { invoice ->
                             InvoiceItem(
                                 invoice = invoice,
@@ -273,12 +277,23 @@ private fun EmptyStateView() {
 
 @Composable
 private fun InvoiceListSkeleton() {
+    val shimmerTransition = rememberInfiniteTransition(label = "InvoiceSkeletonShimmer")
+    val shimmerTranslate by shimmerTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "InvoiceSkeletonTranslate"
+    )
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        items(count = 12, key = { "skeleton-$it" }) {
-            InvoiceItemSkeleton()
+        items(count = 8, key = { "skeleton-$it" }) {
+            InvoiceItemSkeleton(shimmerTranslate = shimmerTranslate)
         }
     }
 }
@@ -293,11 +308,11 @@ private fun InvoiceScreenSuccessPreview() {
     InvoiceScreen(
         uiState = InvoiceUIState.Success(
             invoices = listOf(
-                Invoice(invoiceID = 1, invoiceAmount = 54.56f, invoiceDate = LocalDate.of(2020, 8, 31), invoiceStatus = "Pendiente de pago"),
-                Invoice(invoiceID = 2, invoiceAmount = 67.54f, invoiceDate = LocalDate.of(2020, 7, 31), invoiceStatus = "Pagada"),
-                Invoice(invoiceID = 3, invoiceAmount = 56.38f, invoiceDate = LocalDate.of(2020, 6, 22), invoiceStatus = "Anulada"),
-                Invoice(invoiceID = 4, invoiceAmount = 150.75f, invoiceDate = LocalDate.of(2024, 5, 12), invoiceStatus = "Cuota fija"),
-                Invoice(invoiceID = 5, invoiceAmount = 99.99f, invoiceDate = LocalDate.of(2024, 6, 8), invoiceStatus = "Plan de pago"),
+                InvoiceListItemUi(id = 1, dateText = "31 ago 2020", amountText = "54,56 €", state = com.nexosolar.android.domain.models.InvoiceState.PENDING),
+                InvoiceListItemUi(id = 2, dateText = "31 jul 2020", amountText = "67,54 €", state = com.nexosolar.android.domain.models.InvoiceState.PAID),
+                InvoiceListItemUi(id = 3, dateText = "22 jun 2020", amountText = "56,38 €", state = com.nexosolar.android.domain.models.InvoiceState.CANCELLED),
+                InvoiceListItemUi(id = 4, dateText = "12 may 2024", amountText = "150,75 €", state = com.nexosolar.android.domain.models.InvoiceState.FIXED_FEE),
+                InvoiceListItemUi(id = 5, dateText = "8 jun 2024", amountText = "99,99 €", state = com.nexosolar.android.domain.models.InvoiceState.PAYMENT_PLAN),
             )
         ),
         onRefresh = {},
