@@ -37,7 +37,7 @@ junitJupiter = "5.10.2"
 junitPlatform = "1.10.2"
 extJunit = "1.2.1"
 espresso = "3.6.1"
-mockito = "5.11.0"
+mockito = "5.2.0"
 mockitoKotlin = "5.3.1"
 archTesting = "2.2.0"
 

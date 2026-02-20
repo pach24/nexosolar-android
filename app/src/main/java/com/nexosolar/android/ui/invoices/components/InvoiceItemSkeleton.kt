@@ -39,7 +39,7 @@ fun InvoiceItemSkeleton(
             Column(modifier = Modifier.weight(1f)) {
                 ShimmerBox(
                     shimmerTranslate = shimmerTranslate,
-                    width = 150.dp,
+                    width = 160.dp,
                     height = dimensionResource(id = R.dimen.invoice_item_date_text_size),
                     modifier = Modifier.padding(
                         start = dimensionResource(id = R.dimen.invoice_item_date_margin_start),
@@ -51,7 +51,7 @@ fun InvoiceItemSkeleton(
                     Spacer(modifier = Modifier.height(4.dp))
                     ShimmerBox(
                         shimmerTranslate = shimmerTranslate,
-                        width = 120.dp,
+                        width = 100.dp,
                         height = dimensionResource(id = R.dimen.invoice_item_state_text_size),
                         modifier = Modifier.padding(
                             start = dimensionResource(id = R.dimen.invoice_item_state_margin_start)
@@ -69,15 +69,15 @@ fun InvoiceItemSkeleton(
             ) {
                 ShimmerBox(
                     shimmerTranslate = shimmerTranslate,
-                    width = 90.dp,
+                    width = 70.dp,
                     height = dimensionResource(id = R.dimen.invoice_item_amount_text_size),
                     modifier = Modifier.padding(end = 15.dp)
                 )
 
                 ShimmerBox(
                     shimmerTranslate = shimmerTranslate,
-                    width = 20.dp,
-                    height = 20.dp
+                    width = 30.dp,
+                    height = 30.dp
                 )
             }
         }
@@ -105,7 +105,7 @@ private fun ShimmerBox(
                     colors = listOf(
                         Color(0xFFE0E0E0),
                         Color(0xFFF5F5F5),
-                        Color(0xFFE0E0E0)
+                        Color(0xFFE2E2E2)
                     ),
                     start = Offset(x = shimmerTranslate - 200f, y = 0f),
                     end = Offset(x = shimmerTranslate + 200f, y = 0f)

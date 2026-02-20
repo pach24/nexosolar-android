@@ -1,0 +1,40 @@
+{
+  "numFacturas": 7,
+  "facturas": [
+    {
+      "descEstado": "Pendiente de pago",
+      "importeOrdenacion": 54.56,
+      "fecha": "31/08/2020"
+    },
+    {
+      "descEstado": "Pendiente de pago",
+      "importeOrdenacion": 67.54,
+      "fecha": "31/07/2020"
+    },
+    {
+      "descEstado": "Pendiente de pago",
+      "importeOrdenacion": 56.38,
+      "fecha": "22/06/2020"
+    },
+    {
+      "descEstado": "Pagada",
+      "importeOrdenacion": 57.38,
+      "fecha": "31/05/2020"
+    },
+    {
+      "descEstado": "Pagada",
+      "importeOrdenacion": 65.23,
+      "fecha": "22/04/2020"
+    },
+    {
+      "descEstado": "Pagada",
+      "importeOrdenacion": 74.54,
+      "fecha": "20/03/2020"
+    },
+    {
+      "descEstado": "Pagada",
+      "importeOrdenacion": 67.64,
+      "fecha": "22/02/2020"
+    }
+  ]
+}

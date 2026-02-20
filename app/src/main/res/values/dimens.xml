@@ -154,7 +154,7 @@
     <dimen name="invoice_item_guideline_percent">0.1</dimen>
     <dimen name="invoice_item_date_margin_start">16dp</dimen>
     <dimen name="invoice_item_date_margin_top">23dp</dimen>
-    <dimen name="invoice_item_date_text_size">24sp</dimen>
+    <dimen name="invoice_item_date_text_size">22sp</dimen>
     <dimen name="invoice_item_amount_margin_end">44dp</dimen>
     <dimen name="invoice_item_amount_text_size">23sp</dimen>
     <dimen name="invoice_item_state_margin_start">16dp</dimen>
