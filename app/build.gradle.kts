@@ -36,6 +36,7 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true
+        compose = true   // ← AGP habilita el classpath, lint y compilación Compose
     }
 
     kotlinOptions {

@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -227,18 +229,29 @@ private fun InvoiceContent(
 // 4. COMPONENTES AUXILIARES
 // =================================================================
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 private fun InvoicePullToRefresh(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val state = rememberPullToRefreshState() // ← hoisted aquí
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        state = rememberPullToRefreshState(),
-        modifier = Modifier.fillMaxSize()
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state,          // ← misma referencia
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     ) {
         content()
     }

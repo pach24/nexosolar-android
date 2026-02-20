@@ -8,6 +8,8 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.nexosolar.android.R
+import androidx.compose.ui.window.DialogProperties
+
 
 /**
  * Diálogo simple que informa que la funcionalidad no está disponible.
@@ -17,7 +19,11 @@ fun NotAvailableDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
         title = { Text(text = stringResource(R.string.informacion)) },
         text = { Text(text = stringResource(R.string.mensaje_funcionalidad_no_disponible)) },
         confirmButton = {
