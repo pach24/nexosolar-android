@@ -1,6 +1,8 @@
 package com.nexosolar.android
 
 import android.app.Application
+import android.os.Looper
+import android.os.MessageQueue
 import com.nexosolar.android.core.Logger
 import com.nexosolar.android.data.local.AppDatabase
 import com.nexosolar.android.data.remote.ApiClientManager
