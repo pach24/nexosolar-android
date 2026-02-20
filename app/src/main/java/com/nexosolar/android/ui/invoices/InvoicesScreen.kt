@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -50,6 +50,10 @@ fun InvoiceRoute(
     val filterState by viewModel.filterState.collectAsStateWithLifecycle()
 
     var showFilters by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showFilters) {
+        showFilters = false
+    }
 
     if (showFilters) {
         InvoiceFilterScreen(
