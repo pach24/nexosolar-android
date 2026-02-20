@@ -36,6 +36,7 @@ import com.nexosolar.android.ui.invoices.components.InvoiceItemSkeleton
 import com.nexosolar.android.ui.invoices.components.NotAvailableDialog
 import com.nexosolar.android.ui.invoices.filter.InvoiceFilterScreen
 import com.nexosolar.android.ui.smartsolar.components.ErrorView
+import com.nexosolar.android.ui.theme.NexoSolarTheme
 
 // =================================================================
 // 1. ROUTE
@@ -106,11 +107,11 @@ fun InvoiceScreen(
                             painter = painterResource(id = R.drawable.ic_arrow_back_24),
                             contentDescription = stringResource(R.string.back_button),
                             modifier = Modifier.size(24.dp),
-                            tint = colorResource(id = R.color.my_theme_green_dark)
+                            tint = MaterialTheme.colorScheme.secondary
                         )
                         Text(
                             text = stringResource(R.string.back_button),
-                            color = colorResource(id = R.color.my_theme_green_dark),
+                            color = MaterialTheme.colorScheme.secondary,
                             fontWeight = FontWeight.Medium,
                             fontSize = 18.sp
                         )
@@ -126,22 +127,22 @@ fun InvoiceScreen(
                                 painter = painterResource(id = R.drawable.filtericon_3x),
                                 contentDescription = stringResource(R.string.filtrar_facturas),
                                 modifier = Modifier.size(32.dp),
-                                tint = Color.Black
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = Color.White
+        containerColor =  MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues)) {
             Text(
                 text = stringResource(R.string.facturas),
                 fontWeight = FontWeight.Bold,
                 fontSize = dimensionResource(id = R.dimen.text_size_hero_title).value.sp,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .align(Alignment.Start)
@@ -314,51 +315,104 @@ private fun InvoiceListSkeleton() {
         }
     }
 }
-
 // =================================================================
 // 5. PREVIEWS
 // =================================================================
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
+@Preview(showBackground = true, showSystemUi = true, name = "Success Light")
 private fun InvoiceScreenSuccessPreview() {
-    InvoiceScreen(
-        uiState = InvoiceUIState.Success(
-            invoices = listOf(
-                InvoiceListItemUi(id = 1, dateText = "31 ago 2020", amountText = "54,56 €", state = com.nexosolar.android.domain.models.InvoiceState.PENDING),
-                InvoiceListItemUi(id = 2, dateText = "31 jul 2020", amountText = "67,54 €", state = com.nexosolar.android.domain.models.InvoiceState.PAID),
-                InvoiceListItemUi(id = 3, dateText = "22 jun 2020", amountText = "56,38 €", state = com.nexosolar.android.domain.models.InvoiceState.CANCELLED),
-                InvoiceListItemUi(id = 4, dateText = "12 may 2024", amountText = "150,75 €", state = com.nexosolar.android.domain.models.InvoiceState.FIXED_FEE),
-                InvoiceListItemUi(id = 5, dateText = "8 jun 2024", amountText = "99,99 €", state = com.nexosolar.android.domain.models.InvoiceState.PAYMENT_PLAN),
-            )
-        ),
-        onRefresh = {},
-        onRetry = {},
-        onBackClick = {},
-        onFilterClick = {}
-    )
+    NexoSolarTheme {
+        InvoiceScreen(
+            uiState = InvoiceUIState.Success(
+                invoices = listOf(
+                    InvoiceListItemUi(id = 1, dateText = "31 ago 2020", amountText = "54,56 €", state = com.nexosolar.android.domain.models.InvoiceState.PENDING),
+                    InvoiceListItemUi(id = 2, dateText = "31 jul 2020", amountText = "67,54 €", state = com.nexosolar.android.domain.models.InvoiceState.PAID),
+                    InvoiceListItemUi(id = 3, dateText = "22 jun 2020", amountText = "56,38 €", state = com.nexosolar.android.domain.models.InvoiceState.CANCELLED),
+                    InvoiceListItemUi(id = 4, dateText = "12 may 2024", amountText = "150,75 €", state = com.nexosolar.android.domain.models.InvoiceState.FIXED_FEE),
+                    InvoiceListItemUi(id = 5, dateText = "8 jun 2024", amountText = "99,99 €", state = com.nexosolar.android.domain.models.InvoiceState.PAYMENT_PLAN),
+                )
+            ),
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
+@Preview(showBackground = true, showSystemUi = true, name = "Success Dark")
+private fun InvoiceScreenSuccessDarkPreview() {
+    NexoSolarTheme(darkTheme = true) { // ← darkTheme = true
+        InvoiceScreen(
+            uiState = InvoiceUIState.Success(
+                invoices = listOf(
+                    InvoiceListItemUi(id = 1, dateText = "31 ago 2020", amountText = "54,56 €", state = com.nexosolar.android.domain.models.InvoiceState.PENDING),
+                    InvoiceListItemUi(id = 2, dateText = "31 jul 2020", amountText = "67,54 €", state = com.nexosolar.android.domain.models.InvoiceState.PAID),
+                )
+            ),
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true, showSystemUi = true, name = "Empty Light")
 private fun InvoiceScreenEmptyPreview() {
-    InvoiceScreen(
-        uiState = InvoiceUIState.Empty(),
-        onRefresh = {},
-        onRetry = {},
-        onBackClick = {},
-        onFilterClick = {}
-    )
+    NexoSolarTheme {
+        InvoiceScreen(
+            uiState = InvoiceUIState.Empty(),
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
-private fun InvoiceScreenLoadingPreview() {
-    InvoiceScreen(
-        uiState = InvoiceUIState.Loading,
-        onRefresh = {},
-        onRetry = {},
-        onBackClick = {},
-        onFilterClick = {}
-    )
+@Preview(showBackground = true, showSystemUi = true, name = "Empty Dark")
+private fun InvoiceScreenEmptyDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        InvoiceScreen(
+            uiState = InvoiceUIState.Empty(),
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
 }
+
+@Composable
+@Preview(showBackground = true, showSystemUi = true, name = "Loading Light")
+private fun InvoiceScreenLoadingPreview() {
+    NexoSolarTheme {
+        InvoiceScreen(
+            uiState = InvoiceUIState.Loading,
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true, showSystemUi = true, name = "Loading Dark")
+private fun InvoiceScreenLoadingDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        InvoiceScreen(
+            uiState = InvoiceUIState.Loading,
+            onRefresh = {},
+            onRetry = {},
+            onBackClick = {},
+            onFilterClick = {}
+        )
+    }
+}
+

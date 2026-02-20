@@ -34,32 +34,28 @@ fun InvoiceItem(
     onClick: () -> Unit
 ) {
     val isPaid = invoice.state == InvoiceState.PAID
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = dimensionResource(id = R.dimen.invoice_item_padding_horizontal))
+            .padding(horizontal = dimensionResource(R.dimen.invoice_item_padding_horizontal))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = if (isPaid) 22.dp else 16.dp),
-            // Alineamos al Top para que la Fecha siempre empiece en la misma coordenada Y
             verticalAlignment = Alignment.Top
         ) {
-            // -- COLUMNA IZQUIERDA (Fecha y Estado) --
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            // -- COLUMNA IZQUIERDA --
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = invoice.dateText.ifEmpty { stringResource(R.string.sin_fecha) },
-                    color = Color.Black,
-                    fontSize = dimensionResource(id = R.dimen.invoice_item_date_text_size).value.sp,
+                    color = MaterialTheme.colorScheme.onSurface,          // ← fix
+                    fontSize = dimensionResource(R.dimen.invoice_item_date_text_size).value.sp,
                     fontWeight = FontWeight.Normal,
                     modifier = Modifier.padding(
-                        start = dimensionResource(id = R.dimen.invoice_item_date_margin_start),
-                        // El margen superior es SIEMPRE el mismo para que no salte
-                        top = 0.dp
+                        start = dimensionResource(R.dimen.invoice_item_date_margin_start)
                     )
                 )
 
@@ -67,23 +63,16 @@ fun InvoiceItem(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource(id = getStatusTextRes(invoice.state)),
-                        color = getStatusColor(invoice.state),
-                        fontSize = dimensionResource(id = R.dimen.invoice_item_state_text_size).value.sp,
+                        color = getStatusColor(invoice.state),             // ← fix interno
+                        fontSize = dimensionResource(R.dimen.invoice_item_state_text_size).value.sp,
                         modifier = Modifier.padding(
-                            start = dimensionResource(id = R.dimen.invoice_item_state_margin_start),
-
+                            start = dimensionResource(R.dimen.invoice_item_state_margin_start)
                         )
                     )
-                } else {
-                    // Si está pagada, añadimos un espacio equivalente al estado para que
-                    // el ítem mantenga una altura similar y no se vea "flaco"
-                    Spacer(modifier = Modifier.height(0.dp))
                 }
             }
 
-            // -- COLUMNA DERECHA (Importe y Flecha) --
-            // Usamos un Modifier.align(Alignment.CenterVertically) solo aquí
-            // para que el importe y la flecha sí estén centrados respecto al bloque izquierdo
+            // -- COLUMNA DERECHA --
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
@@ -93,17 +82,17 @@ fun InvoiceItem(
             ) {
                 Text(
                     text = invoice.amountText,
-                    color = Color.Black,
-                    fontSize = dimensionResource(id = R.dimen.invoice_item_amount_text_size).value.sp,
+                    color = MaterialTheme.colorScheme.onSurface,          // ← fix
+                    fontSize = dimensionResource(R.dimen.invoice_item_amount_text_size).value.sp,
                     fontWeight = FontWeight.Normal,
                     textAlign = TextAlign.End,
                     modifier = Modifier.padding(end = 15.dp)
                 )
 
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_back_24),
+                    painter = painterResource(R.drawable.ic_arrow_back_24),
                     contentDescription = stringResource(R.string.icono_flecha_item_factura),
-                    tint = colorResource(id = R.color.dark_gray),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,    // ← fix
                     modifier = Modifier
                         .size(20.dp)
                         .graphicsLayer(scaleX = -1f)
@@ -113,11 +102,12 @@ fun InvoiceItem(
 
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
-            thickness = dimensionResource(id = R.dimen.invoice_item_divider_height),
-            color = colorResource(id = R.color.invoice_item_divider_color)
+            thickness = dimensionResource(R.dimen.invoice_item_divider_height),
+            color = MaterialTheme.colorScheme.outline             // ← fix
         )
     }
 }
+
 
 // Helpers privados para mantener limpio el composable principal
 @Composable
@@ -134,44 +124,60 @@ private fun getStatusTextRes(state: InvoiceState): Int {
 @Composable
 private fun getStatusColor(state: InvoiceState): Color {
     return when (state) {
-        InvoiceState.PENDING, InvoiceState.CANCELLED -> colorResource(id = R.color.texto_alerta) // Rojo/Naranja
-        else -> Color.Black
+        InvoiceState.PENDING,
+        InvoiceState.CANCELLED -> MaterialTheme.colorScheme.error         // ← fix (rojo semántico)
+        else -> MaterialTheme.colorScheme.onSurface                       // ← fix
     }
 }
+
 
 // =================================================================
 // PREVIEWS
 // =================================================================
 
-@Preview(showBackground = true, name = "Factura Pendiente")
+@Preview(showBackground = true, name = "Pendiente · Light")
 @Composable
-private fun InvoiceItemPendingPreview() {
+private fun InvoiceItemPendingLightPreview() {
     NexoSolarTheme {
         InvoiceItem(
-            invoice = InvoiceListItemUi(
-                id = 1,
-                amountText = "150,50 €",
-                dateText = "10 sep 2023",
-                state = InvoiceState.PENDING
-            ),
+            invoice = InvoiceListItemUi(id = 1, amountText = "150,50 €", dateText = "10 sep 2023", state = InvoiceState.PENDING),
             onClick = {}
         )
     }
 }
 
-@Preview(showBackground = true, name = "Factura Pagada (Sin estado)")
+@Preview(showBackground = true, name = "Pendiente · Dark")
 @Composable
-private fun InvoiceItemPaidPreview() {
-    NexoSolarTheme {
+private fun InvoiceItemPendingDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
         InvoiceItem(
-            invoice = InvoiceListItemUi(
-                id = 2,
-                amountText = "89,99 €",
-                dateText = "25 oct 2023",
-                state = InvoiceState.PAID
-            ),
+            invoice = InvoiceListItemUi(id = 1, amountText = "150,50 €", dateText = "10 sep 2023", state = InvoiceState.PENDING),
             onClick = {}
         )
     }
 }
+
+@Preview(showBackground = true, name = "Pagada · Light")
+@Composable
+private fun InvoiceItemPaidLightPreview() {
+    NexoSolarTheme {
+        InvoiceItem(
+            invoice = InvoiceListItemUi(id = 2, amountText = "89,99 €", dateText = "25 oct 2023", state = InvoiceState.PAID),
+            onClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Pagada · Dark")
+@Composable
+private fun InvoiceItemPaidDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        InvoiceItem(
+            invoice = InvoiceListItemUi(id = 2, amountText = "89,99 €", dateText = "25 oct 2023", state = InvoiceState.PAID),
+            onClick = {}
+        )
+    }
+}
+
+
 
