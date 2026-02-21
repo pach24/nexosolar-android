@@ -266,13 +266,13 @@ private fun InvoicePullToRefresh(
 private fun EmptyStateView() {
     // ✅ Box para centrar, Column solo para apilar los elementos internos
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(bottom = 150.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier.padding(0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_empty_list),

@@ -12,8 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +27,9 @@ import com.nexosolar.android.ui.invoices.InvoiceFilterUIState
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import android.content.res.Configuration
+import com.nexosolar.android.ui.theme.NexoDarkColorScheme
+import com.nexosolar.android.ui.theme.NexoLightColorScheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,15 +55,15 @@ fun InvoiceFilterScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.close_icon),
                             contentDescription = stringResource(R.string.cerrar),
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, // <-- Tema M3
                             modifier = Modifier.size(34.dp)
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -74,14 +75,16 @@ fun InvoiceFilterScreen(
             // TÍTULO
             Text(
                 text = stringResource(R.string.filtrar_facturas),
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onBackground, // <-- Tema M3
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 22.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 22.dp)
             )
 
             // ========================================
-            // SECCIÓN FECHAS ✅
+            // SECCIÓN FECHAS
             // ========================================
             FilterSectionTitle(stringResource(R.string.con_fecha_de_emision))
             Spacer(modifier = Modifier.height(12.dp))
@@ -102,7 +105,7 @@ fun InvoiceFilterScreen(
             FilterDivider()
 
             // ========================================
-            // SECCIÓN IMPORTE ✅ (ÚNICA)
+            // SECCIÓN IMPORTE
             // ========================================
             FilterSectionTitle(stringResource(R.string.por_un_importe))
             Spacer(modifier = Modifier.height(16.dp))
@@ -111,7 +114,7 @@ fun InvoiceFilterScreen(
             Text(
                 text = String.format("%.0f € - %.0f €", safeMin, safeMax),
                 textAlign = TextAlign.Center,
-                color = colorResource(id = R.color.my_theme_green_light),
+                color = MaterialTheme.colorScheme.primary, // <-- Tema M3 (NexoGreenLight)
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Normal,
                 modifier = Modifier.fillMaxWidth()
@@ -119,9 +122,11 @@ fun InvoiceFilterScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Etiquetas
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "0 €", color = Color.Gray, fontSize = 14.sp)
-                Text(text = String.format("%.0f €", actualMaxAmount), color = Color.Gray, fontSize = 14.sp)
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "0 €", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                Text(text = String.format("%.0f €", actualMaxAmount), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
 
             // RangeSlider
@@ -134,19 +139,18 @@ fun InvoiceFilterScreen(
                     )
                 },
                 valueRange = 0f..actualMaxAmount,
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
-                    thumbColor = colorResource(id = R.color.my_theme_green_light),
-                    activeTrackColor = colorResource(id = R.color.my_theme_green_light),
-                    inactiveTrackColor = Color.LightGray.copy(alpha = 0.5f)
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 startThumb = {
                     Box(
                         modifier = Modifier
                             .size(26.dp)
                             .background(
-                                color = colorResource(id = R.color.my_theme_green_light),
+                                color = MaterialTheme.colorScheme.primary, // <-- Tema M3
                                 shape = CircleShape
                             )
                     )
@@ -156,30 +160,28 @@ fun InvoiceFilterScreen(
                         modifier = Modifier
                             .size(26.dp)
                             .background(
-                                color = colorResource(id = R.color.my_theme_green_light),
+                                color = MaterialTheme.colorScheme.primary, // <-- Tema M3
                                 shape = CircleShape
                             )
                     )
                 },
-                // ✅ Track personalizado con grosor controlado
                 track = { rangeSliderState ->
                     SliderDefaults.Track(
                         rangeSliderState = rangeSliderState,
-                        modifier = Modifier.height(2.dp), // ⬅️ AQUÍ controlas el grosor
+                        modifier = Modifier.height(2.dp),
                         colors = SliderDefaults.colors(
-                            activeTrackColor = colorResource(id = R.color.my_theme_green_light),
-                            inactiveTrackColor = Color.LightGray.copy(alpha = 0.5f)
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
-                        drawStopIndicator = null // Sin marcadores en los extremos
+                        drawStopIndicator = null
                     )
                 }
             )
 
-
             FilterDivider()
 
             // ========================================
-            // SECCIÓN ESTADOS ✅
+            // SECCIÓN ESTADOS
             // ========================================
             FilterSectionTitle(stringResource(R.string.por_estado))
             Spacer(modifier = Modifier.height(8.dp))
@@ -210,13 +212,19 @@ fun InvoiceFilterScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             // ========================================
-            // BOTONES ✅
+            // BOTONES
             // ========================================
             Button(
                 onClick = { onApplyFilters(currentFilters) },
-                modifier = Modifier.fillMaxWidth().height(50.dp).padding(horizontal = 24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .padding(horizontal = 24.dp),
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.my_theme_green_light)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary, // <-- Tema M3
+                    contentColor = MaterialTheme.colorScheme.onPrimary  // <-- Tema M3
+                ),
                 enabled = !uiState.isApplying
             ) {
                 Text(text = stringResource(R.string.aplicar_filtros), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -234,9 +242,15 @@ fun InvoiceFilterScreen(
                         filteredStates = emptySet()
                     )
                 },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
             ) {
-                Text(text = stringResource(R.string.borrar_filtros), color = Color.Gray, fontSize = 16.sp)
+                Text(
+                    text = stringResource(R.string.borrar_filtros),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, // <-- Tema M3
+                    fontSize = 16.sp
+                )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -280,7 +294,7 @@ fun InvoiceFilterScreen(
 private fun FilterSectionTitle(text: String) {
     Text(
         text = text,
-        color = Color.Black,
+        color = MaterialTheme.colorScheme.onBackground, // <-- Tema M3
         fontWeight = FontWeight.Bold,
         fontSize = 17.sp,
         modifier = Modifier.fillMaxWidth()
@@ -292,28 +306,28 @@ private fun FilterDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(vertical = 32.dp),
         thickness = 1.dp,
-        color = Color(0xFFEEEEEE) // Gris muy suave
+        color = MaterialTheme.colorScheme.outlineVariant // <-- Reemplaza el Color(0xFFEEEEEE) estático
     )
 }
+
 @Composable
 private fun DateButtonColumn(
     label: String,
     date: LocalDate?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier // Valor por defecto para evitar errores
+    modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
         Text(
             text = label,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurface, // <-- Tema M3 (Gris claro/oscuro)
             fontSize = 14.sp,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        // Botón gris redondeado de ancho fijo (140dp)
         Surface(
             onClick = onClick,
             shape = RoundedCornerShape(10.dp),
-            color = Color(0xFFEEEEEE),
+            color = MaterialTheme.colorScheme.surface, // <-- Reemplaza Color(0xFFEEEEEE)
             modifier = Modifier
                 .width(140.dp)
                 .height(34.dp)
@@ -321,7 +335,7 @@ private fun DateButtonColumn(
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = date?.let { DateUtils.formatDateShort(it) } ?: stringResource(R.string.dia_mes_ano),
-                    color = Color.Black,
+                    color = MaterialTheme.colorScheme.onSurface, // <-- Reemplaza Color.Black
                     fontWeight = if (date != null) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 14.sp
                 )
@@ -330,11 +344,6 @@ private fun DateButtonColumn(
     }
 }
 
-
-/**
- * Fila de checkbox donde se puede pulsar en cualquier parte (texto o caja).
- * Usa los colores verdes definidos en el tema.
- */
 @Composable
 private fun FilterCheckboxRow(
     label: String,
@@ -344,26 +353,26 @@ private fun FilterCheckboxRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(40.dp) // Altura cómoda para el dedo
+            .height(40.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null // Sin efecto ripple si prefieres limpieza, o quita esta línea
+                indication = null
             ) { onCheckedChange(!isChecked) },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = isChecked,
-            onCheckedChange = null, // Null porque el click lo maneja la Row
+            onCheckedChange = null,
             colors = CheckboxDefaults.colors(
-                checkedColor = colorResource(id = R.color.my_theme_green_light), // VERDE
-                uncheckedColor = Color.LightGray,
-                checkmarkColor = Color.White
+                checkedColor = MaterialTheme.colorScheme.primary,       // <-- Tema M3
+                uncheckedColor = MaterialTheme.colorScheme.outline,     // <-- Reemplaza Color.LightGray
+                checkmarkColor = MaterialTheme.colorScheme.onPrimary    // <-- Color del tick dependiente del fondo
             )
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = label,
-            color = Color.Black, // Gris oscuro como en la foto
+            color = MaterialTheme.colorScheme.onSurface, // <-- Reemplaza Color.Black
             fontSize = 16.sp
         )
     }
@@ -426,49 +435,69 @@ private fun SafeDatePickerDialog(
                         onDateSelected(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
                     }
                 }
-            }) { Text("OK", color = colorResource(R.color.my_theme_green_light)) }
+            }) { Text("OK", color = MaterialTheme.colorScheme.primary) } // <-- Tema M3
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar", color = Color.Gray) }
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant) // <-- Tema M3
+            }
         }
     ) {
         DatePicker(state = datePickerState)
     }
 }
 
+
+
 // ==========================================
-// PREVIEW
+// PREVIEWS MODO CLARO Y MODO OSCURO
 // ==========================================
 
-@Preview(showBackground = true, heightDp = 800)
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    heightDp = 800,
+    uiMode = Configuration.UI_MODE_NIGHT_NO
+)
 @Composable
-private fun InvoiceFilterScreenPreview() {
-    // 1. Simulamos estadísticas reales (Min 0€ - Max 300€)
-    val mockStatistics = InvoiceFilterUIState.FilterStatistics(
-        maxAmount = 300f,
-        oldestDateMillis = 1672531200000L, // 01/01/2023
-        newestDateMillis = 1704067200000L  // 01/01/2024
-    )
+private fun InvoiceFilterScreenLightPreview() {
+    MaterialTheme(colorScheme = NexoLightColorScheme) {
+        InvoiceFilterScreen(
+            uiState = mockUIState(),
+            onApplyFilters = {},
+            onClose = {}
+        )
+    }
+}
 
-    // 2. Simulamos filtros aplicados (Rango 50-250€ y estado 'Pendiente' marcado)
-    val mockFilters = InvoiceFilters(
+@Preview(
+    name = "Dark Mode",
+    showBackground = true,
+    heightDp = 800,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun InvoiceFilterScreenDarkPreview() {
+    MaterialTheme(colorScheme = NexoDarkColorScheme) {
+        InvoiceFilterScreen(
+            uiState = mockUIState(),
+            onApplyFilters = {},
+            onClose = {}
+        )
+    }
+}
+
+// Función auxiliar privada para no repetir el mock
+private fun mockUIState() = InvoiceFilterUIState(
+    filters = InvoiceFilters(
         minAmount = 50f,
         maxAmount = 250f,
         filteredStates = setOf(InvoiceState.PENDING.serverValue)
-    )
-
-    // 3. Estado de UI completo
-    val mockUIState = InvoiceFilterUIState(
-        filters = mockFilters,
-        statistics = mockStatistics,
-        isApplying = false
-    )
-
-    // 4. Renderizamos la pantalla
-    InvoiceFilterScreen(
-        uiState = mockUIState,
-        onApplyFilters = {},
-        onClose = {}
-    )
-}
-
+    ),
+    statistics = InvoiceFilterUIState.FilterStatistics(
+        maxAmount = 300f,
+        oldestDateMillis = 1672531200000L,
+        newestDateMillis = 1704067200000L
+    ),
+    isApplying = false
+)

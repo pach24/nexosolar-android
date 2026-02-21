@@ -23,6 +23,7 @@ val InactiveThumb = Color(0xFFBDBDBD)
 val ActiveThumb = Color(0xFF03DAC5)
 val CardBorder = Color(0xFFF0F0F0)
 val MainBackground = Color(0xFFF2F2F7)
+val myGray = Color(0xFFE9E7EC)
 val LightGray = Color(0xFFE8E8E8)
 val DarkGray = Color(0xFF78787A)
 val DarkerGray = Color(0xFF333333)
@@ -32,7 +33,7 @@ val SkeletonDivider = Color(0xFFEEEEEE)
 val InvoiceDivider = Color(0xFFE0E0E0)
 
 // ================= COLORES ADICIONALES =================
-// Basados en los R.color.* que encontré en tu código
+// Basados en los R.color.*
 val DetailLabelColor = Color(0xFF78787A)        // detail_label_color
 val DetailValueColor = Color(0xFF333333)        // detail_value_color
 val DetailInfoTint = Color(0xFF7CB342)          // detail_info_tint (verde acento)
@@ -64,7 +65,7 @@ val NexoLightColorScheme = lightColorScheme(
     onSecondaryContainer = Color(0xFF33691E),
 
     // SUPERFICIES (Fondos de cards, dialogs, sheets)
-    surface = Color.White,                 // Fondo de cards, dialogs
+    surface = myGray,                 // Fondo de cards, dialogs
     onSurface = DarkerGray,                // Texto principal sobre surface (negro)
     surfaceVariant = MainBackground,       // Fondo de pantallas (gris muy claro)
     onSurfaceVariant = DarkGray,           // Texto secundario (gris medio)

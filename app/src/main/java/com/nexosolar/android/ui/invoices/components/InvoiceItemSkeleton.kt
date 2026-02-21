@@ -1,16 +1,21 @@
 package com.nexosolar.android.ui.invoices.components
 
+import android.content.res.Configuration
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -24,6 +29,20 @@ fun InvoiceItemSkeleton(
     modifier: Modifier = Modifier
 ) {
     val isPaid = false
+    val isDark = isSystemInDarkTheme()
+
+    // 1. Resolvemos los colores de forma reactiva según el modo claro/oscuro
+    val baseColor = if (isDark) Color(0xFF424242) else Color(0xFFE0E0E0)
+    val highlightColor = if (isDark) Color(0xFF616161) else Color(0xFFF5F5F5)
+    val shimmerColors = listOf(baseColor, highlightColor, baseColor)
+
+    // 2. Creamos el Brush aquí, siguiendo el mismo patrón que DetailsSkeleton.
+    // Usamos el shimmerTranslate inyectado desde el padre (ideal para LazyColumns).
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset(x = shimmerTranslate - 200f, y = shimmerTranslate - 200f),
+        end = Offset(x = shimmerTranslate, y = shimmerTranslate)
+    )
 
     Column(
         modifier = modifier
@@ -38,7 +57,7 @@ fun InvoiceItemSkeleton(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 ShimmerBox(
-                    shimmerTranslate = shimmerTranslate,
+                    brush = brush,
                     width = 160.dp,
                     height = dimensionResource(id = R.dimen.invoice_item_date_text_size),
                     modifier = Modifier.padding(
@@ -50,7 +69,7 @@ fun InvoiceItemSkeleton(
                 if (!isPaid) {
                     Spacer(modifier = Modifier.height(4.dp))
                     ShimmerBox(
-                        shimmerTranslate = shimmerTranslate,
+                        brush = brush,
                         width = 100.dp,
                         height = dimensionResource(id = R.dimen.invoice_item_state_text_size),
                         modifier = Modifier.padding(
@@ -68,31 +87,39 @@ fun InvoiceItemSkeleton(
                 horizontalArrangement = Arrangement.End
             ) {
                 ShimmerBox(
-                    shimmerTranslate = shimmerTranslate,
+                    brush = brush,
                     width = 70.dp,
                     height = dimensionResource(id = R.dimen.invoice_item_amount_text_size),
                     modifier = Modifier.padding(end = 15.dp)
                 )
 
                 ShimmerBox(
-                    shimmerTranslate = shimmerTranslate,
+                    brush = brush,
                     width = 30.dp,
                     height = 30.dp
                 )
             }
         }
 
+        // 3. Adaptamos el divisor dinámicamente.
+        // Opcionalmente, en el futuro podrías usar `MaterialTheme.colorScheme.outlineVariant`
+        val dividerColor = if (isDark) Color(0xFF424242) else Color(0xFFEEEEEE)
+
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = dimensionResource(id = R.dimen.invoice_item_divider_height),
-            color = colorResource(id = R.color.invoice_item_divider_color)
+            color = dividerColor
         )
     }
 }
 
+/**
+ * Componente UI tonto (Dumb Component).
+ * Solo recibe las dimensiones y el Brush ya calculado.
+ */
 @Composable
 private fun ShimmerBox(
-    shimmerTranslate: Float,
+    brush: Brush,
     width: Dp,
     height: Dp,
     modifier: Modifier = Modifier
@@ -101,24 +128,51 @@ private fun ShimmerBox(
         modifier = modifier
             .size(width = width, height = height)
             .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFFE0E0E0),
-                        Color(0xFFF5F5F5),
-                        Color(0xFFE2E2E2)
-                    ),
-                    start = Offset(x = shimmerTranslate - 200f, y = 0f),
-                    end = Offset(x = shimmerTranslate + 200f, y = 0f)
-                ),
+                brush = brush,
                 shape = RoundedCornerShape(8.dp)
             )
     )
 }
 
-@Preview(showBackground = true, name = "Skeleton")
+// ================= PREVIEWS =================
+
+@Preview(showBackground = true, name = "Skeleton Animated (Light)")
 @Composable
-private fun InvoiceItemSkeletonPreview() {
-    NexoSolarTheme {
-        InvoiceItemSkeleton(shimmerTranslate = 400f)
+private fun InvoiceItemSkeletonLightPreview() {
+    NexoSolarTheme(darkTheme = false) {
+        val transition = rememberInfiniteTransition(label = "shimmer")
+        val translateAnim by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1000f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "shimmer"
+        )
+        // Usamos Surface para que el color de fondo simule la app real y el contraste sea visible
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            InvoiceItemSkeleton(shimmerTranslate = translateAnim)
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Skeleton Animated (Dark)", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun InvoiceItemSkeletonDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        val transition = rememberInfiniteTransition(label = "shimmer")
+        val translateAnim by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1000f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "shimmer"
+        )
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            InvoiceItemSkeleton(shimmerTranslate = translateAnim)
+        }
     }
 }
