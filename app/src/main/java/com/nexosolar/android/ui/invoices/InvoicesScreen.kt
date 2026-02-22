@@ -51,9 +51,34 @@ fun InvoiceRoute(
     val filterState by viewModel.filterState.collectAsStateWithLifecycle()
 
     var showFilters by remember { mutableStateOf(false) }
+    var showNotAvailableDialog by remember { mutableStateOf(false) }
+    var isNavigatingBack by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showFilters) {
-        showFilters = false
+    val handleBackClick = remember(onBackClick, isNavigatingBack) {
+        {
+            if (!isNavigatingBack) {
+                isNavigatingBack = true
+                showFilters = false
+                showNotAvailableDialog = false
+                onBackClick()
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            showFilters = false
+            showNotAvailableDialog = false
+            isNavigatingBack = false
+        }
+    }
+
+    BackHandler(enabled = true) {
+        if (showFilters) {
+            showFilters = false
+        } else {
+            handleBackClick()
+        }
     }
 
     if (showFilters) {
@@ -71,8 +96,12 @@ fun InvoiceRoute(
             uiState = uiState,
             onRefresh = viewModel::onSwipeRefresh,
             onRetry = viewModel::onSwipeRefresh,
-            onBackClick = onBackClick,
-            onFilterClick = { showFilters = true }
+            onBackClick = handleBackClick,
+            onFilterClick = { if (!isNavigatingBack) showFilters = true },
+            isNavigatingBack = isNavigatingBack,
+            showNotAvailableDialog = showNotAvailableDialog,
+            onInvoiceClick = { if (!isNavigatingBack) showNotAvailableDialog = true },
+            onDialogDismiss = { showNotAvailableDialog = false }
         )
     }
 }
@@ -88,7 +117,11 @@ fun InvoiceScreen(
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onBackClick: () -> Unit,
-    onFilterClick: () -> Unit
+    onFilterClick: () -> Unit,
+    isNavigatingBack: Boolean,
+    showNotAvailableDialog: Boolean,
+    onInvoiceClick: () -> Unit,
+    onDialogDismiss: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -98,7 +131,7 @@ fun InvoiceScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .clickable { onBackClick() }
+                            .clickable(enabled = !isNavigatingBack) { onBackClick() }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -121,6 +154,7 @@ fun InvoiceScreen(
                     if (uiState is InvoiceUIState.Success || uiState is InvoiceUIState.Empty) {
                         IconButton(
                             onClick = onFilterClick,
+                            enabled = !isNavigatingBack,
                             modifier = Modifier.padding(end = 12.dp)
                         ) {
                             Icon(
@@ -152,7 +186,11 @@ fun InvoiceScreen(
             InvoiceContent(
                 uiState = uiState,
                 onRefresh = onRefresh,
-                onRetry = onRetry
+                onRetry = onRetry,
+                isNavigatingBack = isNavigatingBack,
+                showNotAvailableDialog = showNotAvailableDialog,
+                onInvoiceClick = onInvoiceClick,
+                onDialogDismiss = onDialogDismiss
             )
         }
     }
@@ -166,14 +204,12 @@ fun InvoiceScreen(
 private fun InvoiceContent(
     uiState: InvoiceUIState,
     onRefresh: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    isNavigatingBack: Boolean,
+    showNotAvailableDialog: Boolean,
+    onInvoiceClick: () -> Unit,
+    onDialogDismiss: () -> Unit
 ) {
-    // ✅ Estado local aquí: solo recompone InvoiceContent, no el Scaffold entero
-    var showNotAvailableDialog by remember { mutableStateOf(false) }
-
-    // ✅ Lambda estable: misma referencia entre recomposiciones
-    val onItemClick = remember { { showNotAvailableDialog = true } }
-
     Box(modifier = Modifier.fillMaxSize()) {
         when (uiState) {
 
@@ -213,7 +249,7 @@ private fun InvoiceContent(
                         ) { invoice ->
                             InvoiceItem(
                                 invoice = invoice,
-                                onClick = onItemClick  // ✅ referencia estable
+                                onClick = { if (!isNavigatingBack) onInvoiceClick() }
                             )
                         }
                     }
@@ -224,7 +260,7 @@ private fun InvoiceContent(
         // ✅ Diálogo dentro del Box, al nivel del contenido, no del Scaffold
         if (showNotAvailableDialog) {
             NotAvailableDialog(
-                onDismiss = { showNotAvailableDialog = false }
+                onDismiss = onDialogDismiss
             )
         }
     }
@@ -336,7 +372,11 @@ private fun InvoiceScreenSuccessPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
@@ -355,7 +395,11 @@ private fun InvoiceScreenSuccessDarkPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
@@ -369,7 +413,11 @@ private fun InvoiceScreenEmptyPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
@@ -383,7 +431,11 @@ private fun InvoiceScreenEmptyDarkPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
@@ -397,7 +449,11 @@ private fun InvoiceScreenLoadingPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
@@ -411,8 +467,11 @@ private fun InvoiceScreenLoadingDarkPreview() {
             onRefresh = {},
             onRetry = {},
             onBackClick = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            isNavigatingBack = false,
+            showNotAvailableDialog = false,
+            onInvoiceClick = {},
+            onDialogDismiss = {}
         )
     }
 }
-
