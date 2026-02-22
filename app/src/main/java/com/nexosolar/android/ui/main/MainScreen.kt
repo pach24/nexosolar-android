@@ -59,10 +59,12 @@ fun MainScreen(
     onNavigateToInvoices: () -> Unit,
     onNavigateToSmartSolar: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorResource(id = R.color.main_background))
+            .background(colorScheme.background)
             .verticalScroll(rememberScrollState())
     ) {
         // 1. FONDO ABSTRACTO (Capa base, equivalente a ImageView con constraints)
@@ -104,8 +106,14 @@ fun MainScreen(
                         .padding(horizontal = 4.dp)
                         .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).height(0.dp).scale(0.8f),
                     colors = SwitchDefaults.colors(
-                        disabledUncheckedThumbColor = Color.Gray.copy(alpha = 0.5f),
-                        disabledUncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
+                        checkedThumbColor = colorScheme.primary,
+                        checkedTrackColor = colorScheme.primaryContainer,
+                        uncheckedThumbColor = colorScheme.outline,
+                        uncheckedTrackColor = colorScheme.surfaceVariant,
+                        disabledCheckedThumbColor = colorScheme.primary.copy(alpha = 0.4f),
+                        disabledCheckedTrackColor = colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        disabledUncheckedThumbColor = colorScheme.outline.copy(alpha = 0.5f),
+                        disabledUncheckedTrackColor = colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     )
                 )
 
@@ -124,7 +132,17 @@ fun MainScreen(
                     onCheckedChange = onMockToggled,
                     modifier = Modifier
                         .padding(end = 16.dp)
-                        .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).scale(0.8f)
+                        .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).scale(0.8f),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colorScheme.secondary,
+                        checkedTrackColor = colorScheme.secondaryContainer,
+                        uncheckedThumbColor = colorScheme.outline,
+                        uncheckedTrackColor = colorScheme.surfaceVariant,
+                        disabledCheckedThumbColor = colorScheme.secondary.copy(alpha = 0.4f),
+                        disabledCheckedTrackColor = colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        disabledUncheckedThumbColor = colorScheme.outline.copy(alpha = 0.5f),
+                        disabledUncheckedTrackColor = colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    )
                 )
 
                 // Avatar
@@ -153,7 +171,7 @@ fun MainScreen(
                 text = stringResource(R.string.greeting_user, uiState.userName),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = colorScheme.onBackground,
                 modifier = Modifier.padding(start = 16.dp, top = 16.dp)
             )
 
@@ -161,7 +179,7 @@ fun MainScreen(
             Text(
                 text = uiState.userAddress,
                 fontSize = 14.sp,
-                color = colorResource(id = R.color.darker_gray),
+                color = colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp)
             )
@@ -171,7 +189,7 @@ fun MainScreen(
                 text = stringResource(R.string.mi_energ_a),
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
-                color = Color.Black,
+                color = colorScheme.onBackground,
                 modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 16.dp)
             )
 
