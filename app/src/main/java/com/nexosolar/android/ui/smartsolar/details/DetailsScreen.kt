@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -176,25 +177,34 @@ private fun DetailDivider() {
         color = MaterialTheme.colorScheme.outlineVariant
     )
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsPullToRefresh(
+fun DetailsPullToRefresh(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val state = rememberPullToRefreshState()
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        state = rememberPullToRefreshState(),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            content()
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
+    ) {
+        content() // ✅ sin verticalScroll aquí
     }
 }
+
 
 @Preview(showBackground = true, name = "Success (Light)")
 @Composable

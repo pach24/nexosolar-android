@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,19 +128,30 @@ fun InstallationContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun PullToRefreshContent(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val state = rememberPullToRefreshState()
+    val state = rememberPullToRefreshState() // ← hoisted aquí igual que en Invoices
+
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         state = state,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        // 👇 AÑADIMOS EL INDICADOR PERSONALIZADO AQUÍ 👇
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state,          // ← misma referencia
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = MaterialTheme.colorScheme.surface, // Fondo de la bolita
+                color = MaterialTheme.colorScheme.primary           // Color del spinner (Verde NexoSolar)
+            )
+        }
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val minHeight = this.maxHeight
@@ -161,6 +173,7 @@ fun PullToRefreshContent(
         }
     }
 }
+
 
 @Preview(showBackground = true, name = "Success (Light)")
 @Composable
