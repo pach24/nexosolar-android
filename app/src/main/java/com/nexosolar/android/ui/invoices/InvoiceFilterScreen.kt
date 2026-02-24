@@ -28,6 +28,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.Color
 import com.nexosolar.android.ui.theme.NexoDarkColorScheme
 import com.nexosolar.android.ui.theme.NexoLightColorScheme
 
@@ -143,7 +144,7 @@ fun InvoiceFilterScreen(
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    inactiveTrackColor = MaterialTheme.colorScheme.outline
                 ),
                 startThumb = {
                     Box(
@@ -171,7 +172,7 @@ fun InvoiceFilterScreen(
                         modifier = Modifier.height(2.dp),
                         colors = SliderDefaults.colors(
                             activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            inactiveTrackColor = MaterialTheme.colorScheme.outline
                         ),
                         drawStopIndicator = null
                     )

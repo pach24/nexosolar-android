@@ -29,7 +29,7 @@ val DarkGray = Color(0xFF78787A)
 val DarkerGray = Color(0xFF333333)
 
 // ================= SKELETONS / DIVIDERS =================
-val SkeletonDivider = Color(0xFFEEEEEE)
+val SkeletonDivider = Color(0xFFD2D2D2)
 val InvoiceDivider = Color(0xFFE0E0E0)
 
 // ================= COLORES ADICIONALES =================
@@ -59,10 +59,10 @@ val NexoLightColorScheme = lightColorScheme(
     onPrimaryContainer = NexoGreenDark,    // Texto sobre primaryContainer
 
     // SECUNDARIOS (Accents, elementos de apoyo)
-    secondary = SmartSolarGreen,           // Verde SmartSolar (tabs, iconos)
+    secondary = Color(0xFF0DA9FF),        // Verde SmartSolar (tabs, iconos)
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFDCEDC8),
-    onSecondaryContainer = Color(0xFF33691E),
+    secondaryContainer = Color(0xFFC8EDDE),
+    onSecondaryContainer = Color(0xFF1E5A69),
 
     // SUPERFICIES (Fondos de cards, dialogs, sheets)
     surface = myGray,                 // Fondo de cards, dialogs

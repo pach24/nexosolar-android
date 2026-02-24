@@ -100,7 +100,7 @@ fun DetailsContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .padding(dimensionResource(id = R.dimen.detail_content_padding))
     ) {
         DetailItem(stringResource(R.string.cau_label), installation.selfConsumptionCode)

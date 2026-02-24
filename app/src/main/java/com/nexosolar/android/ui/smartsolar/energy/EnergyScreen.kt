@@ -29,7 +29,7 @@ fun EnergyScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .padding(
                 top = dimensionResource(R.dimen.empty_energy_padding_top),
                 start = dimensionResource(R.dimen.empty_energy_padding_horizontal),

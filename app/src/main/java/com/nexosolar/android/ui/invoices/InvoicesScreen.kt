@@ -140,11 +140,11 @@ fun InvoiceScreen(
                             painter = painterResource(id = R.drawable.ic_arrow_back_24),
                             contentDescription = stringResource(R.string.back_button),
                             modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.secondary
+                            tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = stringResource(R.string.back_button),
-                            color = MaterialTheme.colorScheme.secondary,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium,
                             fontSize = 18.sp
                         )

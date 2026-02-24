@@ -46,7 +46,7 @@ fun InstallationScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         when (uiState) {
             is InstallationUIState.Loading -> InstallationSkeleton()
@@ -166,7 +166,7 @@ fun PullToRefreshContent(
 @Composable
 private fun InstallationScreenSuccessPreview() {
     NexoSolarTheme {
-        Box(Modifier.background(MaterialTheme.colorScheme.surface)) {
+        Box() {
             InstallationContent(installation = Installation())
         }
     }

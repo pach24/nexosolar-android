@@ -47,7 +47,7 @@ fun InstallationSkeleton() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .padding(dimensionResource(id = R.dimen.energy_detail_screen_padding))
     ) {
         // Descripción (2 líneas simuladas)

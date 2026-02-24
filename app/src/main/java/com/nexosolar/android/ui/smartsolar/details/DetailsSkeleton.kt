@@ -47,7 +47,7 @@ fun DetailsSkeleton() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .padding(dimensionResource(id = R.dimen.detail_content_padding))
     ) {
         repeat(5) { index ->
@@ -56,7 +56,7 @@ fun DetailsSkeleton() {
                 showInfoPlaceholder = (index == 1) // Solo el 2º item tiene icono info
             )
             if (index < 4) {
-                SkeletonDivider(isDark)
+                SkeletonDivider()
             }
         }
     }
@@ -98,18 +98,16 @@ private fun SkeletonDetailItem(
 }
 
 @Composable
-private fun SkeletonDivider(isDark: Boolean) {
-    val dividerColor = if (isDark) Color(0xFF424242) else Color(0xFFEEEEEE)
+private fun SkeletonDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(
             top = dimensionResource(id = R.dimen.detail_divider_margin_top),
             bottom = dimensionResource(id = R.dimen.detail_section_margin_top)
         ),
         thickness = 1.dp,
-        color = dividerColor
+        color = MaterialTheme.colorScheme.outlineVariant
     )
 }
-
 @Preview(showBackground = true, name = "Skeleton Animated (Light)")
 @Composable
 private fun DetailsSkeletonLightPreview() {

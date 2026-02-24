@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nexosolar.android.R
+import com.nexosolar.android.ui.theme.NexoSolarTheme
 
 // =================================================================
 // 1. ROUTE
@@ -106,7 +107,7 @@ fun MainScreen(
                         .padding(horizontal = 4.dp)
                         .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).height(0.dp).scale(0.8f),
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = colorScheme.primary,
+                        checkedThumbColor = colorScheme.secondary,
                         checkedTrackColor = colorScheme.primaryContainer,
                         uncheckedThumbColor = colorScheme.outline,
                         uncheckedTrackColor = colorScheme.surfaceVariant,
@@ -135,13 +136,14 @@ fun MainScreen(
                         .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).scale(0.8f),
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = colorScheme.secondary,
-                        checkedTrackColor = colorScheme.secondaryContainer,
+                        checkedTrackColor = colorScheme.primaryContainer,
                         uncheckedThumbColor = colorScheme.outline,
                         uncheckedTrackColor = colorScheme.surfaceVariant,
-                        disabledCheckedThumbColor = colorScheme.secondary.copy(alpha = 0.4f),
-                        disabledCheckedTrackColor = colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        disabledCheckedThumbColor = colorScheme.primary.copy(alpha = 0.4f),
+                        disabledCheckedTrackColor = colorScheme.primaryContainer.copy(alpha = 0.5f),
                         disabledUncheckedThumbColor = colorScheme.outline.copy(alpha = 0.5f),
                         disabledUncheckedTrackColor = colorScheme.surfaceVariant.copy(alpha = 0.6f)
+
                     )
                 )
 
@@ -179,7 +181,7 @@ fun MainScreen(
             Text(
                 text = uiState.userAddress,
                 fontSize = 14.sp,
-                color = colorScheme.onSurfaceVariant,
+                color = colorScheme.onBackground,
                 maxLines = 1,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp)
             )
@@ -289,13 +291,36 @@ private fun ActionCard(
 // =================================================================
 // 4. PREVIEW
 // =================================================================
+// =================================================================
+// 4. PREVIEW
+// =================================================================
 
-@Preview(showSystemUi = true)
+@Preview(name = "Light Mode", showBackground = true, showSystemUi = true)
 @Composable
 private fun MainScreenPreview() {
-    MaterialTheme {
+    NexoSolarTheme {
         MainScreen(
-            uiState = MainUIState(),
+            uiState = MainUIState(
+                userName = "Francisco Pacheco",
+                userAddress = "Av. de la Constitución, Sevilla"
+            ),
+            onMockToggled = {},
+            onAltUrlToggled = {},
+            onNavigateToInvoices = {},
+            onNavigateToSmartSolar = {}
+        )
+    }
+}
+
+@Preview(name = "Dark Mode", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Composable
+private fun MainScreenDarkPreview() {
+    NexoSolarTheme(darkTheme = true) {
+        MainScreen(
+            uiState = MainUIState(
+                userName = "Francisco Pacheco",
+                userAddress = "Av. de la Constitución, Sevilla"
+            ),
             onMockToggled = {},
             onAltUrlToggled = {},
             onNavigateToInvoices = {},
