@@ -5,7 +5,7 @@
 
 A native Android application focused on displaying and filtering invoice data, created to showcase clean architecture, MVVM-based presentation logic, and good development practices rather than complex business functionality.
 
-> **Last Updated:** February 2026 
+> **Last Updated:** March 2026 
 
 
 
