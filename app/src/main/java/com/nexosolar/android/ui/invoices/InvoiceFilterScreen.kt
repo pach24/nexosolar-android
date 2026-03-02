@@ -56,7 +56,7 @@ fun InvoiceFilterScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.close_icon),
                             contentDescription = stringResource(R.string.cerrar),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant, // <-- Tema M3
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(34.dp)
                         )
                     }
@@ -76,7 +76,7 @@ fun InvoiceFilterScreen(
             // TÍTULO
             Text(
                 text = stringResource(R.string.filtrar_facturas),
-                color = MaterialTheme.colorScheme.onBackground, // <-- Tema M3
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
@@ -115,7 +115,7 @@ fun InvoiceFilterScreen(
             Text(
                 text = String.format("%.0f € - %.0f €", safeMin, safeMax),
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.primary, // <-- Tema M3 (NexoGreenLight)
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Normal,
                 modifier = Modifier.fillMaxWidth()
@@ -151,7 +151,7 @@ fun InvoiceFilterScreen(
                         modifier = Modifier
                             .size(26.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primary, // <-- Tema M3
+                                color = MaterialTheme.colorScheme.primary,
                                 shape = CircleShape
                             )
                     )
@@ -161,7 +161,7 @@ fun InvoiceFilterScreen(
                         modifier = Modifier
                             .size(26.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primary, // <-- Tema M3
+                                color = MaterialTheme.colorScheme.primary,
                                 shape = CircleShape
                             )
                     )

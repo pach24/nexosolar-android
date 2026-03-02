@@ -135,21 +135,20 @@ fun PullToRefreshContent(
     onRefresh: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val state = rememberPullToRefreshState() // ← hoisted aquí igual que en Invoices
+    val state = rememberPullToRefreshState()
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
         state = state,
         modifier = Modifier.fillMaxSize(),
-        // 👇 AÑADIMOS EL INDICADOR PERSONALIZADO AQUÍ 👇
         indicator = {
             PullToRefreshDefaults.Indicator(
-                state = state,          // ← misma referencia
+                state = state,
                 isRefreshing = isRefreshing,
                 modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = MaterialTheme.colorScheme.surface, // Fondo de la bolita
-                color = MaterialTheme.colorScheme.primary           // Color del spinner (Verde NexoSolar)
+                containerColor = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     ) {
@@ -160,8 +159,7 @@ fun PullToRefreshContent(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                // heightIn(min = minHeight) garantiza que el contenido ocupe al menos toda la pantalla
-                // para que el fondo blanco no se corte si el contenido es corto.
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

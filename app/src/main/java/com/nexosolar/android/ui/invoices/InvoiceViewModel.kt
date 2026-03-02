@@ -15,13 +15,16 @@ import com.nexosolar.android.domain.usecase.invoice.GetInvoicesUseCase
 import com.nexosolar.android.domain.usecase.invoice.RefreshInvoicesUseCase
 import com.nexosolar.android.ui.common.toUserMessageRes
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -39,77 +42,67 @@ class InvoiceViewModel @Inject constructor(
 
     private val tag = "InvoiceVM"
 
-    private val _uiState = MutableStateFlow<InvoiceUIState>(InvoiceUIState.Loading)
-    val uiState: StateFlow<InvoiceUIState> = _uiState.asStateFlow()
+    // 1. ESTADOS INDEPENDIENTES (Fuentes de verdad)
 
+    // Filtros que el usuario está modificando en la UI (Draft)
     private val _filterState = MutableStateFlow(InvoiceFilterUIState())
     val filterState: StateFlow<InvoiceFilterUIState> = _filterState.asStateFlow()
 
-    private var originalInvoices: List<Invoice> = emptyList()
-    private var collectionJob: Job? = null
+    // Filtros confirmados que realmente se aplican a la lista
+    private val _appliedFilters = MutableStateFlow(InvoiceFilters())
 
-    private val amountFormatter: NumberFormat = NumberFormat.getCurrencyInstance(Locale("es", "ES")).apply {
-        currency = Currency.getInstance("EUR")
-        maximumFractionDigits = 2
-        minimumFractionDigits = 2
-    }
+    // Estado del Pull-to-Refresh
+    private val _isRefreshing = MutableStateFlow(false)
 
-    init {
-        observarFacturas()
-    }
-
-    private fun observarFacturas() {
-        collectionJob?.cancel()
-        collectionJob = viewModelScope.launch(Dispatchers.Default) {
-            getInvoicesUseCase()
-                .debounce(300.milliseconds)
-                .catch { error ->
-                    Logger.e(tag, "[ERROR] Flow error: ${error.message}", error)
-                    val errorType = ErrorClassifier.classify(error)
-                    _uiState.value = InvoiceUIState.Error(
-                        messageRes = errorType.toUserMessageRes(),
-                        type = errorType
-                    )
-                }
-                .collect { invoices ->
-                    originalInvoices = invoices
-                    processInvoices(invoices)
-                }
+    // 2. OPTIMIZACIÓN THREAD-SAFE (Sin bloquear hilos)
+    private val amountFormatter = object : ThreadLocal<NumberFormat>() {
+        override fun initialValue(): NumberFormat {
+            return NumberFormat.getCurrencyInstance(Locale("es", "ES")).apply {
+                currency = Currency.getInstance("EUR")
+                maximumFractionDigits = 2
+                minimumFractionDigits = 2
+            }
         }
     }
 
-    private fun processInvoices(invoices: List<Invoice>) {
+    // 3. ESTADO REACTIVO COMBINADO (El corazón del ViewModel)
+    val uiState: StateFlow<InvoiceUIState> = combine(
+        // Envolvemos el caso de uso suspendido en un flow builder
+        flow { emitAll(getInvoicesUseCase()) }.debounce(300.milliseconds),
+        _appliedFilters,
+        _isRefreshing
+    ) { invoices, filters, isRefreshing ->
+
         if (invoices.isEmpty()) {
-            _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
-            return
+            return@combine InvoiceUIState.Empty(isRefreshing = isRefreshing)
         }
 
-        val currentFilterUi = _filterState.value
-        val updatedFilterState = calculateFilterState(currentFilterUi, invoices)
-        val currentFilters = updatedFilterState.filters
-        val filteredList = filterInvoicesUseCase(originalInvoices, currentFilters)
+        // Actualizamos las estadísticas de los filtros (side-effect seguro)
+        updateFilterBounds(invoices)
 
-        _filterState.value = updatedFilterState
+        // Aplicamos los filtros confirmados
+        val filteredList = filterInvoicesUseCase(invoices, filters)
 
         if (filteredList.isEmpty()) {
-            _uiState.value = InvoiceUIState.Empty(isRefreshing = false)
-            return
-        }
-
-        val uiItems = filteredList.map(::toUiItem)
-        val current = _uiState.value
-        if (current !is InvoiceUIState.Success || current.invoices != uiItems) {
-            _uiState.value = InvoiceUIState.Success(
-                invoices = uiItems,
-                isRefreshing = false
-            )
+            InvoiceUIState.Empty(isRefreshing = isRefreshing)
+        } else {
+            val uiItems = filteredList.map { it.toUiItem() }
+            InvoiceUIState.Success(invoices = uiItems, isRefreshing = isRefreshing)
         }
     }
+        .catch { error ->
+            Logger.e(tag, "[ERROR] Flow error: ${error.message}", error)
+            val errorType = ErrorClassifier.classify(error)
+            emit(InvoiceUIState.Error(errorType.toUserMessageRes(), errorType))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000), // Optimización crítica para Compose
+            initialValue = InvoiceUIState.Loading
+        )
 
-    private fun calculateFilterState(
-        currentUI: InvoiceFilterUIState,
-        invoices: List<Invoice>
-    ): InvoiceFilterUIState {
+    private fun updateFilterBounds(invoices: List<Invoice>) {
+        val currentUI = _filterState.value
         val oldFilters = currentUI.filters
         val oldStats = currentUI.statistics
 
@@ -120,93 +113,64 @@ class InvoiceViewModel @Inject constructor(
             newestDateMillis = DateUtils.toEpochMilli(invoices.newestDate())
         )
 
-        val finalMin: Float
-        val finalMax: Float
-
-        if (oldFilters.minAmount == null || oldStats.maxAmount <= 0f) {
-            finalMin = 0f
-            finalMax = newMaxAmount
+        val finalMin = oldFilters.minAmount?.coerceIn(0f, newMaxAmount) ?: 0f
+        val finalMax = if (oldFilters.maxAmount != null && oldFilters.maxAmount!! >= oldStats.maxAmount * 0.99f) {
+            newMaxAmount
         } else {
-            val oldMin = oldFilters.minAmount!!
-            val oldMax = oldFilters.maxAmount!!
-            val wasAtMax = oldMax >= oldStats.maxAmount * 0.99f
-
-            if (oldMin >= newMaxAmount) {
-                finalMin = 0f
-                finalMax = newMaxAmount
-            } else {
-                finalMin = oldMin.coerceIn(0f, newMaxAmount)
-                finalMax = if (wasAtMax) {
-                    newMaxAmount
-                } else {
-                    oldMax.coerceIn(finalMin, newMaxAmount)
-                }
-            }
+            oldFilters.maxAmount?.coerceIn(finalMin, newMaxAmount) ?: newMaxAmount
         }
 
-        val filtersToKeep = oldFilters.copy(minAmount = finalMin, maxAmount = finalMax)
-        return currentUI.copy(filters = filtersToKeep, statistics = newStats)
+        _filterState.update {
+            it.copy(
+                filters = oldFilters.copy(minAmount = finalMin, maxAmount = finalMax),
+                statistics = newStats
+            )
+        }
     }
 
-    private fun toUiItem(invoice: Invoice): InvoiceListItemUi {
-        val formattedDate = DateUtils.formatDate(invoice.invoiceDate)
-        val formattedAmount = synchronized(amountFormatter) {
-            amountFormatter.format(invoice.invoiceAmount.toDouble())
-        }
+    private fun Invoice.toUiItem(): InvoiceListItemUi {
+        val formattedDate = DateUtils.formatDate(this.invoiceDate)
+        // Usamos ThreadLocal para evitar synchronized y bloqueos
+        val formattedAmount = amountFormatter.get()?.format(this.invoiceAmount.toDouble()) ?: ""
+
         return InvoiceListItemUi(
-            id = invoice.invoiceID,
+            id = this.invoiceID,
             dateText = formattedDate,
             amountText = formattedAmount,
-            state = invoice.estadoEnum
+            state = this.estadoEnum
         )
     }
 
+    // --- INTENCIONES DEL USUARIO (Eventos de la UI) ---
+
     fun updateFilters(filters: InvoiceFilters) {
-        val normalized = filters.normalize()
-        _filterState.update { it.copy(filters = normalized) }
+        _filterState.update { it.copy(filters = filters.normalize()) }
     }
 
     fun applyFilters() {
-        viewModelScope.launch(Dispatchers.Default) {
-            _filterState.update { it.copy(isApplying = true) }
-            processInvoices(originalInvoices)
-            _filterState.update { it.copy(isApplying = false) }
-        }
+        // Al actualizar esta variable, el 'combine' reacciona automáticamente
+        _appliedFilters.value = _filterState.value.filters
     }
 
     fun onSwipeRefresh() {
-        val currentState = _uiState.value
-        if (currentState is InvoiceUIState.Success || currentState is InvoiceUIState.Empty) {
-            viewModelScope.launch {
-                setRefreshing(true)
-                try {
-                    refreshInvoicesUseCase()
-                } catch (e: Exception) {
-                    Logger.e(tag, "Refresh failed", e)
-                    setRefreshing(false)
-                }
+        viewModelScope.launch { // Ya no forzamos Dispatchers.Default
+            _isRefreshing.value = true
+            try {
+                refreshInvoicesUseCase()
+            } catch (e: Exception) {
+                Logger.e(tag, "Refresh failed", e)
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }
 
     fun refresh() {
-        _uiState.value = InvoiceUIState.Loading
         viewModelScope.launch {
             try {
                 refreshInvoicesUseCase()
             } catch (e: Exception) {
-                Logger.e(tag, "Refresh failed", e)
-                observarFacturas()
-            }
-        }
-    }
-
-    private fun setRefreshing(isRefreshing: Boolean) {
-        _uiState.update { state ->
-            when (state) {
-                is InvoiceUIState.Success -> state.copy(isRefreshing = isRefreshing)
-                is InvoiceUIState.Empty -> state.copy(isRefreshing = isRefreshing)
-                else -> state
+                Logger.e(tag, "Full refresh failed", e)
             }
         }
     }

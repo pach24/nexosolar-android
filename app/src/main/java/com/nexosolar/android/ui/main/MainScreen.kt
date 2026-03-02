@@ -1,5 +1,6 @@
 package com.nexosolar.android.ui.main
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -61,7 +63,7 @@ fun MainScreen(
     onNavigateToSmartSolar: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -107,7 +109,7 @@ fun MainScreen(
                         .padding(horizontal = 4.dp)
                         .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).height(0.dp).scale(0.8f),
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = colorScheme.secondary,
+                        checkedThumbColor = colorScheme.primary,
                         checkedTrackColor = colorScheme.primaryContainer,
                         uncheckedThumbColor = colorScheme.outline,
                         uncheckedTrackColor = colorScheme.surfaceVariant,
@@ -130,7 +132,18 @@ fun MainScreen(
                 // Switch Mock
                 Switch(
                     checked = uiState.useMock,
-                    onCheckedChange = onMockToggled,
+                    onCheckedChange = { isChecked ->
+                        // 1. Notificamos al ViewModel del cambio
+                        onMockToggled(isChecked)
+
+                        // 2. Mostramos el Toast al framework de Android
+                        if (isChecked) {
+                            Toast.makeText(context, "Usando retromock", Toast.LENGTH_SHORT).show()
+                        } else {
+
+                            Toast.makeText(context, "Usando retrofit", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     modifier = Modifier
                         .padding(end = 16.dp)
                         .defaultMinSize(minWidth = 1.dp, minHeight = 1.dp).scale(0.8f),
@@ -288,9 +301,6 @@ private fun ActionCard(
     }
 }
 
-// =================================================================
-// 4. PREVIEW
-// =================================================================
 // =================================================================
 // 4. PREVIEW
 // =================================================================

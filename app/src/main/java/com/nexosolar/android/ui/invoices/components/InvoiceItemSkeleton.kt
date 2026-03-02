@@ -31,13 +31,11 @@ fun InvoiceItemSkeleton(
     val isPaid = false
     val isDark = isSystemInDarkTheme()
 
-    // 1. Resolvemos los colores de forma reactiva según el modo claro/oscuro
+
     val baseColor = if (isDark) Color(0xFF424242) else Color(0xFFE0E0E0)
     val highlightColor = if (isDark) Color(0xFF616161) else Color(0xFFF5F5F5)
     val shimmerColors = listOf(baseColor, highlightColor, baseColor)
 
-    // 2. Creamos el Brush aquí, siguiendo el mismo patrón que DetailsSkeleton.
-    // Usamos el shimmerTranslate inyectado desde el padre (ideal para LazyColumns).
     val brush = Brush.linearGradient(
         colors = shimmerColors,
         start = Offset(x = shimmerTranslate - 200f, y = shimmerTranslate - 200f),
@@ -102,7 +100,6 @@ fun InvoiceItemSkeleton(
         }
 
         // 3. Adaptamos el divisor dinámicamente.
-        // Opcionalmente, en el futuro podrías usar `MaterialTheme.colorScheme.outlineVariant`
         val dividerColor = if (isDark) Color(0xFF424242) else Color(0xFFEEEEEE)
 
         HorizontalDivider(

@@ -82,7 +82,7 @@ fun InvoiceItem(
             ) {
                 Text(
                     text = invoice.amountText,
-                    color = MaterialTheme.colorScheme.onSurface,          // ← fix
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = dimensionResource(R.dimen.invoice_item_amount_text_size).value.sp,
                     fontWeight = FontWeight.Normal,
                     textAlign = TextAlign.End,
@@ -92,7 +92,7 @@ fun InvoiceItem(
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_back_24),
                     contentDescription = stringResource(R.string.icono_flecha_item_factura),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,    // ← fix
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(20.dp)
                         .graphicsLayer(scaleX = -1f)
@@ -103,7 +103,7 @@ fun InvoiceItem(
         HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = dimensionResource(R.dimen.invoice_item_divider_height),
-            color = MaterialTheme.colorScheme.outline             // ← fix
+            color = MaterialTheme.colorScheme.outline
         )
     }
 }
@@ -125,8 +125,8 @@ private fun getStatusTextRes(state: InvoiceState): Int {
 private fun getStatusColor(state: InvoiceState): Color {
     return when (state) {
         InvoiceState.PENDING,
-        InvoiceState.CANCELLED -> MaterialTheme.colorScheme.error         // ← fix (rojo semántico)
-        else -> MaterialTheme.colorScheme.onSurface                       // ← fix
+        InvoiceState.CANCELLED -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurface
     }
 }
 

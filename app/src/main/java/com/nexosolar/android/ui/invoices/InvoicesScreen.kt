@@ -20,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -181,8 +180,6 @@ fun InvoiceScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .align(Alignment.Start)
             )
-
-            // ✅ Todo el estado local vive aquí, no contamina el Scaffold
             InvoiceContent(
                 uiState = uiState,
                 onRefresh = onRefresh,
@@ -256,8 +253,6 @@ private fun InvoiceContent(
                 }
             }
         }
-
-        // ✅ Diálogo dentro del Box, al nivel del contenido, no del Scaffold
         if (showNotAvailableDialog) {
             NotAvailableDialog(
                 onDismiss = onDialogDismiss
@@ -277,7 +272,7 @@ private fun InvoicePullToRefresh(
     onRefresh: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val state = rememberPullToRefreshState() // ← hoisted aquí
+    val state = rememberPullToRefreshState()
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -286,7 +281,7 @@ private fun InvoicePullToRefresh(
         modifier = Modifier.fillMaxSize(),
         indicator = {
             PullToRefreshDefaults.Indicator(
-                state = state,          // ← misma referencia
+                state = state,
                 isRefreshing = isRefreshing,
                 modifier = Modifier.align(Alignment.TopCenter),
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -300,7 +295,6 @@ private fun InvoicePullToRefresh(
 
 @Composable
 private fun EmptyStateView() {
-    // ✅ Box para centrar, Column solo para apilar los elementos internos
     Box(
         modifier = Modifier.fillMaxSize().padding(bottom = 150.dp),
         contentAlignment = Alignment.Center
