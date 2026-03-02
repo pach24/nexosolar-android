@@ -13,6 +13,7 @@ A native Android application focused on displaying and filtering invoice data, c
 
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![SOLID](https://img.shields.io/badge/SOLID-4A90E2?style=for-the-badge)
 ![MVVM](https://img.shields.io/badge/MVVM-FF6F00?style=for-the-badge&logo=android&logoColor=white)
@@ -127,7 +128,9 @@ Key technical highlights include:
 ## Features
 
 - **Offline-First Architecture:** Uses **Room Database** as the single source of truth.
-- **Smart Loading:** Skeleton shimmer animation during data fetching.
+- **Modern UI & Theming:**
+  - **Full Dark Mode Support:** Seamlessly adapts to system preferences using Jetpack Compose Material 3 theming.
+  - **Smart Loading:** Skeleton shimmer animation during data fetching.
 - **Invoice Management:**
   - Robust Filtering: Status, date range, and amount.
   - Visual status indicators.
@@ -146,7 +149,7 @@ The project follows a strict **Clean Architecture** approach combined with **MVV
 
 ### 📱 Presentation Layer (UI + ViewModel)
 - **State Management:** Uses **`StateFlow`** (modern Kotlin Flow API) with **Unidirectional Data Flow (UDF)** pattern, following Google's latest recommendations.
-- **Reactive UI:** Strict lifecycle-aware observation using `repeatOnLifecycle` to prevent memory leaks.
+- **Reactive UI:** Strict lifecycle-aware observation using Compose's `collectAsStateWithLifecycle()` to optimize background resource usage and prevent memory leaks.
 - **Type-Safe States:** Sealed interfaces (`InvoiceUIState`) ensure compile-time safety and exhaustive `when` statements.
 
 ### 🧠 Domain Layer (Business Logic)
@@ -237,32 +240,30 @@ cd <your-repo>
 
 ### Basic Flow
 
-1. **Launch the app** to open `MainActivity`.
+1. **Launch the app** to open the main dashboard (`DashboardScreen` hosted in a Single-Activity).
 2. **Select Data Source**:
    - Use the toggle switch to choose between **Retrofit (Real API)** and **Retromock (Mock Data)**.
    - This preference controls the data source for the entire session.
 3. **Enter Smart Solar Dashboard**:
-   - Tap the enter button to navigate to `SmartSolarActivity`.
+   - Tap the enter button to navigate to the `SmartSolarScreen`.
    - Here you can access the new monitoring features:
      - **Installation:** View technical details and status of your solar setup.
      - **Energy:** Monitor real-time self-consumption and energy generation.
 4. **View Invoices**:
-   - Navigate to the **Invoices** section (launches `InvoiceListActivity`).
+   - Navigate to the **Invoices** section (`InvoiceListScreen`).
    - The app loads bills through `InvoiceViewModel` → `GetInvoicesUseCase` → `InvoiceRepository` (using Room for offline cache).
 
 ### Filtering Invoices
 
-1. In the invoice list (`InvoiceListActivity`), open the filter panel from the toolbar/menu.
-2. In `FilterFragment`, configure your criteria:
+1. In the invoice list (`InvoiceListScreen`), open the filter panel from the top app bar.
+2. In the `FilterBottomSheet` (or `FilterScreen`), configure your criteria:
    - **Status:** Select checkboxes (Paid, Pending, Cancelled, Fixed Fee, Payment Plan...).
-   - **Date Range:** Use the "From" and "Until" date pickers to set a period.
-   - **Amount Range:** Adjust the `RangeSlider` to set minimum and maximum amounts.
+   - **Date Range:** Use the Compose `DateRangePicker` to set a period.
+   - **Amount Range:** Adjust the Compose `RangeSlider` to set minimum and maximum amounts.
 3. Tap **Apply**:
-   - The fragment sends the filter parameters back to the activity via a `Bundle`.
-   - The list updates instantly to show only matching invoices.
-4. **Reset:** Tap the "Reset" button in the filter panel to clear all filters and restore the full list.
-
-
+   - The UI delegates the action to the `InvoiceViewModel` (Intent/Event), which updates the `FilterState`.
+   - The ViewModel's `StateFlow` emits the newly filtered data, triggering an automatic recomposition of the list. No `Bundles` or manual UI updates required.
+4. **Reset:** Tap the "Reset" button to clear all filters from the ViewModel state and seamlessly restore the full list.
 
 
 ---
@@ -284,40 +285,13 @@ Project with **complete unit test suite** (100% business logic coverage) using *
 
 ---
 
-### Migration to Jetpack Compose (Q2 2026)
+### Declarative UI: Jetpack Compose Integration
 
-**Current Status**: 🟢 Architecture 95% Compose-Ready
+The presentation layer is built **100% with Jetpack Compose**, adopting a Single-Activity architecture and modern state management principles:
 
-#### Why Migration is Trivial:
-- **StateFlow** → Direct `collectAsState()` integration
-- **Sealed UI States** → Maps 1:1 to Composable `when` branches
-- **Immutable Models** → Optimal recomposition performance
-- **Hilt DI** → `@HiltViewModel` already supported
-
-#### Estimated Effort:
-- **Domain/Data layers**: 0 changes needed
-- **ViewModels**: 0 changes needed (StateFlow compatible)
-- **UI Layer**: Replace XML with `@Composable` functions (2-3 weeks)
-
-#### Proof of Concept:
-```kotlin
-// Current ViewModel (no changes needed!)
-@HiltViewModel
-class InvoiceViewModel @Inject constructor(/*...*/) {
-    val uiState: StateFlow<InvoiceUIState> = /* ... */
-}
-
-// Future Compose UI
-@Composable
-fun InvoiceScreen(vm: InvoiceViewModel = hiltViewModel()) {
-    val state by vm.uiState.collectAsState()
-    when (state) {
-        is Loading -> LoadingShimmer()
-        is Success -> InvoiceList(state.invoices)
-        is Error -> ErrorView(state.message)
-    }
-}
-```
+- **Unidirectional Data Flow (UDF):** UI components never mutate state directly. They hoist events to the `@HiltViewModel`, which exposes a read-only `StateFlow`.
+- **Lifecycle-Aware Collection:** States are safely collected using `collectAsStateWithLifecycle()` to prevent resource leaks when the app is in the background.
+- **Sealed Interfaces for UI State:** Exhaustive state mapping guarantees that the UI always renders exactly what the ViewModel dictates, eliminating impossible states (e.g., showing both a list and an error at the same time).
 
 ### Code Quality
 - **Integration Tests:** Add Espresso UI tests for critical user flows
@@ -329,11 +303,14 @@ fun InvoiceScreen(vm: InvoiceViewModel = hiltViewModel()) {
 
 ### Tech Stack Highlights
 *   **Concurrency:** Kotlin Coroutines + **StateFlow** (hot stream) + **Flow** (cold stream) with lifecycle-aware collection (`repeatOnLifecycle`).
+*   **UI Framework:** Jetpack Compose with **Material 3** design system (Dynamic theming & Dark Mode).  
 *   **Dependency Injection:** Hilt (compile-time DI with KSP).
 *   **Architecture:** Clean Architecture + MVVM + Repository Pattern.
 *   **Network:** Retrofit + OkHttp + Retromock (Custom Interceptor strategy).
 *   **Persistence:** Room (Offline-First Single Source of Truth).
 *   **Testing:** JUnit 5, Mockito.
+
+
 
 ---
 
