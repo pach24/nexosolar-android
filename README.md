@@ -191,10 +191,10 @@ The application is strictly modularized to enforce separation of concerns, scala
 
 ## Download / Release
 
-You can download the latest APK of **NexoSolar** from the releases section:
+You can download the latest APK of **NexoSolar** directly from the releases section:
 
-- **Version:** v1.2.0 – Latest Update
-- **Download:** [NexoSolar v1.2.0](https://github.com/pach24/nexosolar-android/releases/tag/1.2.0))
+- **Version:** v2.0.0 – The Compose & Material 3 Era 
+- **Download:** [NexoSolar v2.0.0 APK](https://github.com/pach24/nexosolar-android/releases/tag/2.0.0)
 
 > ⚠️ Make sure to allow installation from **unknown sources** on your Android device before installing.
 
